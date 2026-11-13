@@ -18,6 +18,7 @@ import {
 import { activeBuild, clientBuildMatches } from "../builds";
 import { progressionDef } from "../content/progressions";
 import { levelForXp } from "../investment/character-level";
+import { gearXpMultiplier } from "../investment/stubs/xp-policy";
 import { hasTalentGrid } from "../investment/talent-grid";
 import type {
   AccountRecord,
@@ -236,8 +237,12 @@ export class BungieAccessProtocolSession implements SelfFamilyPublisher {
   // Gear levelling: the same XP goes to every equipped item with a talent
   // grid (weapons, armour, the subclass), whose grid level gates its nodes.
   // Returns the soids whose item objects changed, for the delta.
-  private grantItemXp(character: CharacterRecord, amount: number): bigint[] {
+  private grantItemXp(character: CharacterRecord, xp: number): bigint[] {
+    const amount = xp * gearXpMultiplier();
     const changed: bigint[] = [];
+    if (amount <= 0) {
+      return changed;
+    }
     for (let slot = 0; slot < 20; slot++) {
       const item = character.loadout.equipped(slot);
       if (!(item?.instanced && hasTalentGrid(item.defIndex))) {
