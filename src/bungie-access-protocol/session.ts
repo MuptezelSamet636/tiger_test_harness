@@ -175,7 +175,11 @@ export class BungieAccessProtocolSession implements SelfFamilyPublisher {
     if (!character) {
       return;
     }
-    const roll = rollLootDrop(value);
+    const roll = rollLootDrop(
+      value,
+      Math.random,
+      character.appearance.classIndex
+    );
     if (!roll) {
       return;
     }

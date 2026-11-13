@@ -8,7 +8,7 @@ import type { LoadoutItem, LoadoutSeed } from "./loadout";
 import {
   dropChanceForValue,
   LOOT_DROP_CONFIG,
-  lootPoolDefs,
+  pickLootDef,
 } from "./stubs/loot-policy";
 
 // state 3 = "on the ground, spawn a bauble". 5 is the same for the client
@@ -147,16 +147,20 @@ interface LootDropPlan {
 }
 
 // `value` is the killed combatant's reward row value; see dropChanceForValue
-// for what it does with it.
+// for what it does with it. `classIndex` limits the drop to gear that class
+// can equip (pickLootDef).
 export function rollLootDrop(
   value: number,
-  random: () => number = Math.random
+  random: () => number = Math.random,
+  classIndex?: number
 ): LootDropPlan | undefined {
-  const pool = lootPoolDefs();
-  if (pool.length === 0 || random() > dropChanceForValue(value)) {
+  if (random() > dropChanceForValue(value)) {
     return;
   }
-  const itemDef = pool[Math.floor(random() * pool.length)]!;
+  const itemDef = pickLootDef(classIndex, random);
+  if (itemDef === undefined) {
+    return;
+  }
   return { itemDef, quantity: LOOT_DROP_CONFIG.quantity };
 }
 
