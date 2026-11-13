@@ -310,26 +310,82 @@ export async function applyTalentPlan(
   }
 }
 
-// The perks an item's grid grants as it stands: the perks of each node's
-// activated steps (the first talentNodes[node] of them), an auto-granted node
-// counting as one step activated even before the server records it.
-export function activeTalentPerks(item: {
+// Whether a node counts as active on an item: a step activated, or
+// auto-granted with no other member of its binary group activated (a swap
+// to another member turns an auto-granted default off).
+export function isTalentNodeActive(
+  grid: TalentGrid,
+  item: { talentNodes: readonly number[] },
+  node: TalentGridNode
+): boolean {
+  if ((item.talentNodes[node.index] ?? 0) > 0) {
+    return true;
+  }
+  return (
+    node.autoGranted &&
+    !binaryGroupOf(grid, node).some(
+      (other) => (item.talentNodes[other.index] ?? 0) > 0
+    )
+  );
+}
+
+// The steps active on each active node: the first talentNodes[node] of them,
+// at least one for an active auto-granted node.
+function activeSteps(item: {
   defIndex: number;
   talentNodes: readonly number[];
-}): number[] {
+}): { node: TalentGridNode; steps: TalentGridNode["steps"] }[] {
   const grid = talentGridDefinitionForDef(item.defIndex);
   if (!grid) {
     return [];
   }
-  const perks: number[] = [];
-  for (const node of grid.nodes) {
-    const activated = Math.max(
-      item.talentNodes[node.index] ?? 0,
-      node.autoGranted ? 1 : 0
-    );
-    for (const step of node.steps.slice(0, activated)) {
-      perks.push(...(step.perks ?? []));
+  return grid.nodes
+    .filter((node) => isTalentNodeActive(grid, item, node))
+    .map((node) => ({
+      node,
+      steps: node.steps.slice(0, Math.max(1, item.talentNodes[node.index] ?? 0)),
+    }));
+}
+
+// The perks an item's grid grants as it stands.
+export function activeTalentPerks(item: {
+  defIndex: number;
+  talentNodes: readonly number[];
+}): number[] {
+  return activeSteps(item).flatMap(({ steps }) =>
+    steps.flatMap((step) => step.perks ?? [])
+  );
+}
+
+// The investment stats an item's active steps add, by stat key: value x
+// scale, the scale the minimum one, or the middle of the range for a step
+// lerped by a random roll (the instance's roll isn't tracked).
+export function activeTalentStats(item: {
+  defIndex: number;
+  talentNodes: readonly number[];
+}): Map<number, number> {
+  const stats = new Map<number, number>();
+  for (const { steps } of activeSteps(item)) {
+    for (const step of steps) {
+      for (const stat of step.stats ?? []) {
+        const scale =
+          stat.randomSlot >= 0
+            ? (stat.minimumScale + stat.maximumScale) / 2
+            : stat.minimumScale;
+        stats.set(
+          stat.key,
+          (stats.get(stat.key) ?? 0) + Math.round(stat.value * scale)
+        );
+      }
     }
   }
-  return perks;
+  return stats;
+}
+
+// The nodes active on an item, by index (isTalentNodeActive).
+export function activeTalentNodes(item: {
+  defIndex: number;
+  talentNodes: readonly number[];
+}): Set<number> {
+  return new Set(activeSteps(item).map(({ node }) => node.index));
 }

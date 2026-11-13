@@ -56,6 +56,13 @@ export function talentGridReaders(
                 levelRequirement: step.level_requirement,
                 requiredNodeHash: step.required_node_hash,
                 perks: step.perks.map((perk: { perk: number }) => perk.perk),
+                stats: step.stats.map((stat: any) => ({
+                  key: stat.key,
+                  value: stat.value,
+                  minimumScale: stat.minimum_scale,
+                  maximumScale: stat.maximum_scale,
+                  randomSlot: stat.random_slot,
+                })),
               })),
             })),
           }

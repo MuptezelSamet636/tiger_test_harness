@@ -14,6 +14,7 @@ import { equipSlotIds } from "../../../content/inventory";
 import { itemDef } from "../../../content/items";
 import { characterConstants } from "../../../content/progressions";
 import { evaluateStatCurve, statCurve } from "../../../content/stat-curves";
+import { loadWebTigerEnv } from "../../../env";
 import { characterStatOverride } from "../../../investment/character-level";
 import type { CharacterRecord } from "../../../investment/character-store";
 import { type StatPair, starterSubclassDef } from "../../../investment/loadout";
@@ -21,6 +22,7 @@ import {
   itemPrimaryStat,
   primaryStatX,
 } from "../../../investment/primary-stat";
+import { activeTalentStats } from "../../../investment/talent-grid";
 import { SUBCLASS_BASE_STATS } from "./character-values";
 
 const STAT_SLOTS = 16;
@@ -136,8 +138,23 @@ export function weaponStats(
   }
   const primary = itemPrimaryStat(item);
   const stats = new Map<number, number>();
-  for (const [stat, value] of def.weaponStats) {
+  // The def's stats plus what the active talent steps add (a scope's zoom
+  // and range, a barrel's stability), before the curve, as the client sums
+  // them for the menu.
+  const raw = new Map<number, number>(def.weaponStats);
+  if (sendTalentGridStats()) {
+    for (const [stat, value] of activeTalentStats(item)) {
+      raw.set(stat, (raw.get(stat) ?? 0) + value);
+    }
+  }
+  for (const [stat, value] of raw) {
     addStat(stats, stat, itemStat(stat, value, def.equipSlot, primary));
   }
   return packStats(stats);
+}
+
+// TIGER_SEND_TALENT_GRIDS=0 also leaves the talent step stats out.
+function sendTalentGridStats(): boolean {
+  loadWebTigerEnv();
+  return process.env.TIGER_SEND_TALENT_GRIDS?.trim() !== "0";
 }

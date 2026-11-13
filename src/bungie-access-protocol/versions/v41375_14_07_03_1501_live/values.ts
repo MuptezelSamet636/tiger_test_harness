@@ -1,8 +1,10 @@
 import type { rsat } from "@blamnetwork/rsat";
 import { equipSlotIds } from "../../../content/inventory";
+import { itemDef } from "../../../content/items";
 import {
   type SubclassBuild,
   subclassBuilds,
+  talentGridGrants,
 } from "../../../content/talent-grids";
 import {
   characterProgressionRows,
@@ -22,6 +24,7 @@ import {
 } from "../../../investment/loot";
 import type { ItemPrimaryStat } from "../../../investment/primary-stat";
 import {
+  activeTalentNodes,
   activeTalentPerks,
   gridIndexForDef,
   hasTalentGrid,
@@ -485,6 +488,33 @@ function equipSlots(character: CharacterRecord) {
   return slots;
 }
 
+// The subclass as the player has built it: per ability slot the grant of an
+// active node of its tree (the highest level one if several), else the
+// starting build's; the perks of its active nodes (activeTalentPerks).
+function characterSubclassBuild(character: CharacterRecord): SubclassBuild {
+  const start = subclassBuild(character);
+  const item = character.loadout.equipped(equipSlotIds().subclass);
+  const gridIndex = item ? itemDef(item.defIndex)?.gridIndex : null;
+  if (!(item && sendTalentGrids()) || gridIndex == null) {
+    return start;
+  }
+  const active = activeTalentNodes(item);
+  const grants = talentGridGrants(gridIndex).filter((grant) =>
+    active.has(grant.node)
+  );
+  return {
+    grid: start.grid,
+    nodes: [...active],
+    abilities: start.abilities.map((fallback, slot) => {
+      const best = grants
+        .filter((grant) => grant.slot === slot)
+        .sort((a, b) => b.level - a.level)[0];
+      return best ? best.ability : fallback;
+    }),
+    perks: activeTalentPerks(item),
+  };
+}
+
 // The subclass build's perks, then every equipped item's active talent perks
 // (activeTalentPerks), deduplicated, at most GEAR_PERK_SLOTS.
 function gearPerks(
@@ -510,7 +540,7 @@ function gearPerks(
 // The gear block the select, roster and inspection screens and the peer
 // family show; the player's combat stats are read from here, its own included.
 function gear(character: CharacterRecord): GearValue {
-  const build = subclassBuild(character);
+  const build = characterSubclassBuild(character);
   return {
     // The progression level (capped at 20), printed lifted by the light in
     // unknown9.

@@ -61,6 +61,18 @@ function subclassBuildOf(gridIndex: number): SubclassBuild {
   return { grid: gridIndex, abilities, perks: [...perks], nodes };
 }
 
+const grantsByGrid = new Map<number, readonly AbilityGrant[]>();
+
+// Every ability grant in a grid (node, slot, ability, level, auto).
+export function talentGridGrants(gridIndex: number): readonly AbilityGrant[] {
+  let grants = grantsByGrid.get(gridIndex);
+  if (!grants) {
+    grants = contentBuild().readers.talentGridBuildSource(gridIndex).grants;
+    grantsByGrid.set(gridIndex, grants);
+  }
+  return grants;
+}
+
 let builds: ReadonlyMap<number, SubclassBuild> | undefined;
 
 // The starting build of every subclass def (bucket 6), by def index.

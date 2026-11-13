@@ -77,10 +77,22 @@ export interface Vendor {
   purchases: readonly VendorPurchase[];
 }
 
+export interface TalentGridStepStat {
+  key: number;
+  maximumScale: number;
+  minimumScale: number;
+  // The grid random roll that lerps the scale, -1 for none.
+  randomSlot: number;
+  value: number;
+}
+
 export interface TalentGridStep {
   levelRequirement: number;
   // Perk table indices the step grants while active (builds that read them).
   perks?: readonly number[];
+  // Investment stats the step adds while active: value x scale on the stat
+  // with that key (builds that read them).
+  stats?: readonly TalentGridStepStat[];
   // Some node whose binaryPairHash is this must be active, k_empty_name_hash
   // for none.
   requiredNodeHash: number;
