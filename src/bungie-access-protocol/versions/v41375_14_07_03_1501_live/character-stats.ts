@@ -14,7 +14,7 @@ import { equipSlotIds } from "../../../content/inventory";
 import { itemDef } from "../../../content/items";
 import { characterConstants } from "../../../content/progressions";
 import { evaluateStatCurve, statCurve } from "../../../content/stat-curves";
-import { statOverride } from "../../../investment/character-level";
+import { characterStatOverride } from "../../../investment/character-level";
 import type { CharacterRecord } from "../../../investment/character-store";
 import { type StatPair, starterSubclassDef } from "../../../investment/loadout";
 import {
@@ -115,7 +115,7 @@ export function characterStats(character: CharacterRecord): StatPair[] {
   for (const [stat, value] of SUBCLASS_BASE_STATS.get(subclass) ?? []) {
     addStat(stats, stat, value);
   }
-  for (const pair of statOverride()?.unknown1.unknown0 ?? []) {
+  for (const pair of characterStatOverride(character)?.unknown1.unknown0 ?? []) {
     if (pair.unknown0 !== -1) {
       stats.set(pair.unknown0, pair.unknown1);
     }

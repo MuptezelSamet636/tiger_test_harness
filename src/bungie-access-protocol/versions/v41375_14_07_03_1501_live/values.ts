@@ -5,10 +5,10 @@ import {
   subclassBuilds,
 } from "../../../content/talent-grids";
 import {
-  characterLevel,
+  characterProgressionRows,
+  characterStatOverride,
   levelCap,
-  progressionRows,
-  statOverride,
+  levelOf,
 } from "../../../investment/character-level";
 import type { CharacterRecord } from "../../../investment/character-store";
 import { unpackColorGroup } from "../../../investment/color-group";
@@ -291,8 +291,9 @@ export function selfCharacter(character: CharacterRecord): SelfCharacterValue {
       unknown4: character.lastActivity?.completed ?? false,
     },
     unknown6: characterProfile(character),
-    // Progression rows: the level row (progression 109) at the character level.
-    unknown7: { unknown0: progressionRows() },
+    // Progression rows: the level row (progression 109) at the character's
+    // XP (or CHARACTER_LEVEL).
+    unknown7: { unknown0: characterProgressionRows(character) },
     unknown8: SELF_CHARACTER_UNKNOWN8,
     unknown9: lootSlots(character),
     // Character unlock flags (storage type 5): story / destination reveals.
@@ -312,7 +313,7 @@ export function selfCharacter(character: CharacterRecord): SelfCharacterValue {
       unknown0: undefined,
       unknown1: undefined,
       unknown2: undefined,
-      unknown3: statOverride(),
+      unknown3: characterStatOverride(character),
       unknown4: undefined,
       unknown5: directorDebugFlagList(),
       unknown6: DIRECTOR_DEBUG_UNLOCK || undefined,
@@ -450,7 +451,7 @@ function gear(character: CharacterRecord): GearValue {
   return {
     // The progression level (capped at 20), printed lifted by the light in
     // unknown9.
-    unknown0: Math.min(characterLevel(), levelCap()),
+    unknown0: Math.min(levelOf(character), levelCap()),
     // Ability slot i (grenade, super, melee, jump, movement) -> an ability
     // table index from the subclass's grid build.
     unknown1: {
@@ -583,7 +584,7 @@ export function inspectionCharacter(
     soid: character.soid,
     unknown1: appearanceEc(character),
     unknown2: appearanceF0(character),
-    unknown3: { unknown0: progressionRows() },
+    unknown3: { unknown0: characterProgressionRows(character) },
     unknown4: undefined,
     unknown5: undefined,
     unknown6: undefined,

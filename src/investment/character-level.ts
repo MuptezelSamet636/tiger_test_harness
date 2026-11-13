@@ -60,6 +60,23 @@ export function characterLevel(): number {
   return characterLevelValue;
 }
 
+// CHARACTER_LEVEL, when set: every character shows that level whatever its
+// XP (34 opens every activity). Undefined when unset.
+let levelOverrideValue: number | null | undefined;
+export function characterLevelOverride(): number | undefined {
+  if (levelOverrideValue === undefined) {
+    const level = resolveCharacterLevel(0, maxLightLevel());
+    levelOverrideValue = level > 0 ? level : null;
+  }
+  return levelOverrideValue ?? undefined;
+}
+
+// The level a character shows: CHARACTER_LEVEL when set, else the level its
+// own XP reads as, so the XP the server grants moves the bar and levels it up.
+export function levelOf(character: { progressionXp: number }): number {
+  return characterLevelOverride() ?? levelForXp(character.progressionXp);
+}
+
 // XP on the level progression that reads as `level` (capped at the last step).
 export function xpForLevel(level: number): number {
   return progressionXpForLevel(levelProgression(), level);
@@ -108,14 +125,15 @@ function trackedProgressions(): number[] {
 }
 
 // Self character member 7: the level row plus a zero-XP row for every progression the
-// client dereferences unchecked.
-export function progressionRows(level = characterLevel()) {
+// client dereferences unchecked. `xp` is the level row's XP: a character's own
+// (its bar part-filled), or by default the start of `level`.
+export function progressionRows(level = characterLevel(), xp?: number) {
   const levelIndex = levelProgression().index;
   const others = new Set(trackedProgressions());
   others.delete(levelIndex);
   return [
     {
-      unknown0: xpForLevel(level),
+      unknown0: xp ?? xpForLevel(level),
       unknown1: 0,
       unknown2: 0,
       unknown3: levelIndex,
@@ -151,4 +169,17 @@ export function statOverride(level = characterLevel()) {
       ],
     },
   };
+}
+
+// The level row and the light override for one character: its own XP, or
+// CHARACTER_LEVEL's level when that is set.
+export function characterProgressionRows(character: { progressionXp: number }) {
+  const override = characterLevelOverride();
+  return override === undefined
+    ? progressionRows(levelOf(character), character.progressionXp)
+    : progressionRows(override);
+}
+
+export function characterStatOverride(character: { progressionXp: number }) {
+  return statOverride(levelOf(character));
 }
