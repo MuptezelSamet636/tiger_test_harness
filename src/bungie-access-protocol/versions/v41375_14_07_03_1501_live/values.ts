@@ -150,7 +150,24 @@ export function selfPrimary(
   };
 }
 
+// TIGER_ECHO_ACCOUNT_PROFILE=1 sends the stored settings back. Off by
+// default: with them in the self primary the client crashed right after
+// login_character, though the body decodes exactly (8637 of 8640 bits). The
+// settings are still stored.
+let echoAccountProfileValue: boolean | undefined;
+function echoAccountProfile(): boolean {
+  if (echoAccountProfileValue === undefined) {
+    loadWebTigerEnv();
+    echoAccountProfileValue =
+      process.env.TIGER_ECHO_ACCOUNT_PROFILE?.trim() === "1";
+  }
+  return echoAccountProfileValue;
+}
+
 function storedAccountProfile(accountSoid: bigint) {
+  if (!echoAccountProfile()) {
+    return;
+  }
   const body = accountProfile(accountSoid);
   return (body && parseAccountProfile(body)) ?? undefined;
 }
