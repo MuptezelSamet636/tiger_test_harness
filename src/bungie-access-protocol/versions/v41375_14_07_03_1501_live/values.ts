@@ -1,3 +1,4 @@
+import { event_message } from "@blamnetwork/datamine";
 import type { rsat } from "@blamnetwork/rsat";
 import { equipSlotIds } from "../../../content/inventory";
 import { itemDef } from "../../../content/items";
@@ -26,6 +27,7 @@ import type { ItemPrimaryStat } from "../../../investment/primary-stat";
 import {
   activeAbilityModifiers,
   activeTalentNodes,
+  describeActiveTalentNodes,
   activeTalentPerks,
   gridIndexForDef,
   itemPerks,
@@ -504,7 +506,7 @@ function characterSubclassBuild(character: CharacterRecord): SubclassBuild {
   const grants = talentGridGrants(gridIndex).filter((grant) =>
     active.has(grant.node)
   );
-  return {
+  const build = {
     grid: start.grid,
     nodes: [...active],
     abilities: start.abilities.map((fallback, slot) => {
@@ -515,6 +517,36 @@ function characterSubclassBuild(character: CharacterRecord): SubclassBuild {
     }),
     perks: activeTalentPerks(item),
   };
+  logSubclassBuild(character, item, build);
+  return build;
+}
+
+// Diagnostic: the subclass build sent to the world and the active nodes'
+// links, logged when it changes (blink and other modifiers).
+const loggedSubclassBuilds = new Map<bigint, string>();
+function logSubclassBuild(
+  character: CharacterRecord,
+  item: LoadoutItem,
+  build: SubclassBuild
+): void {
+  const mods = build.abilities.map((ability) =>
+    abilityModifiers(character, ability)
+      .map((hash) => hash.toString(16))
+      .join(",")
+  );
+  const line =
+    `def=${item.defIndex} abilities=[${build.abilities.join(",")}] ` +
+    `mods=[${mods.join(" | ")}] perks=[${build.perks.join(",")}] ` +
+    `nodes: ${describeActiveTalentNodes(item)}`;
+  if (loggedSubclassBuilds.get(character.soid) === line) {
+    return;
+  }
+  loggedSubclassBuilds.set(character.soid, line);
+  event_message(
+    "networking:bap: subclass build char=0x%I64x %s",
+    character.soid,
+    line
+  );
 }
 
 // The subclass build's perks, then every equipped item's active talent perks

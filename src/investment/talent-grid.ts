@@ -419,3 +419,23 @@ export function itemPerks(item: {
     ...new Set([...(itemDef(item.defIndex)?.perks ?? []), ...activeTalentPerks(item)]),
   ];
 }
+
+// One line per active node of an item's grid: its index, auto flag, active
+// step count, and every link of its active steps as
+// hash/target/node/ability (hex hash), for the log.
+export function describeActiveTalentNodes(item: {
+  defIndex: number;
+  talentNodes: readonly number[];
+}): string {
+  return activeSteps(item)
+    .map(({ node, steps }) => {
+      const links = steps
+        .flatMap((step) => step.links ?? [])
+        .map(
+          (link) =>
+            `${(link.nameHash >>> 0).toString(16)}/${link.target}/${link.node}/${link.ability}`
+        );
+      return `n${node.index}${node.autoGranted ? "a" : ""}x${steps.length}[${links.join(" ")}]`;
+    })
+    .join(" ");
+}
