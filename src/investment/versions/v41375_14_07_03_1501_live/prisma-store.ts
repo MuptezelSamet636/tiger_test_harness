@@ -228,6 +228,13 @@ export class PrismaCharacterStore implements CharacterStore {
     });
   }
 
+  async setItemTalentXp(soid: bigint, talentXp: number): Promise<void> {
+    await this.prisma.character_item.update({
+      where: { id: soidRowId(soid) },
+      data: { talent_xp: talentXp },
+    });
+  }
+
   async setItemTalentNode(
     soid: bigint,
     node: number,

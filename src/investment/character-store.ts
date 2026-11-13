@@ -110,6 +110,9 @@ export interface CharacterStore {
   // Persist one 80801BF3 activated-step count (talent_grid_activate_step /
   // talent_grid_binary_swap).
   setItemTalentNode(soid: bigint, node: number, value: number): Promise<void>;
+  // Persist an item's talent XP (gear levelling). Optional: a store without it
+  // keeps the XP in memory only.
+  setItemTalentXp?(soid: bigint, talentXp: number): Promise<void>;
 }
 
 export const CharacterStoreToken = Symbol("CharacterStore");

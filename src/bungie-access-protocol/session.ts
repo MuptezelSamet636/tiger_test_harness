@@ -18,6 +18,7 @@ import {
 import { activeBuild, clientBuildMatches } from "../builds";
 import { progressionDef } from "../content/progressions";
 import { levelForXp } from "../investment/character-level";
+import { hasTalentGrid } from "../investment/talent-grid";
 import type {
   AccountRecord,
   CharacterRecord,
@@ -209,6 +210,7 @@ export class BungieAccessProtocolSession implements SelfFamilyPublisher {
       return;
     }
     const before = levelForXp(character.progressionXp);
+    const leveledItems = this.grantItemXp(character, amount);
     this.store
       .addProgressionXp(character.soid, amount)
       .then((xp) => {
@@ -224,11 +226,36 @@ export class BungieAccessProtocolSession implements SelfFamilyPublisher {
           after,
           after > before ? " LEVEL UP" : ""
         );
-        this.families.pushLoadoutChange([], `xp grant (${reason})`);
+        this.families.pushLoadoutChange(leveledItems, `xp grant (${reason})`);
       })
       .catch((error: unknown) => {
         event_warning("networking:bap: grant XP failed: %s", String(error));
       });
+  }
+
+  // Gear levelling: the same XP goes to every equipped item with a talent
+  // grid (weapons, armour, the subclass), whose grid level gates its nodes.
+  // Returns the soids whose item objects changed, for the delta.
+  private grantItemXp(character: CharacterRecord, amount: number): bigint[] {
+    const changed: bigint[] = [];
+    for (let slot = 0; slot < 20; slot++) {
+      const item = character.loadout.equipped(slot);
+      if (!(item?.instanced && hasTalentGrid(item.defIndex))) {
+        continue;
+      }
+      item.talentXp += amount;
+      changed.push(item.soid);
+      this.store
+        .setItemTalentXp?.(item.soid, item.talentXp)
+        .catch((error: unknown) => {
+          event_warning(
+            "networking:bap: item XP failed soid=0x%I64x: %s",
+            item.soid,
+            String(error)
+          );
+        });
+    }
+    return changed;
   }
 
   // Progression 0 (BapBuild.progressionZero): kills add points toward a
