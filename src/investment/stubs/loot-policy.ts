@@ -1,5 +1,6 @@
 import { itemDef } from "../../content/items";
 import { vendorDefs } from "../../content/vendors";
+import { loadWebTigerEnv } from "../../env";
 import { bucketBagStarts } from "../inventory-layout";
 
 // Drop config: every eligible kill rolls a chance, then picks one def
@@ -12,7 +13,22 @@ interface LootDropConfig {
   readonly quantity: number;
 }
 
+// TIGER_LOOT_DROP_CHANCE (0..1) in .env: the chance a kill drops loot. The
+// harness has no reward row value per combatant yet, so kills go through this
+// fixed chance; unset gives DEFAULT_LOOT_DROP_CHANCE.
+const DEFAULT_LOOT_DROP_CHANCE = 0.1;
+
+function lootDropChance(): number {
+  loadWebTigerEnv();
+  const raw = process.env.TIGER_LOOT_DROP_CHANCE?.trim();
+  const value = raw ? Number(raw) : Number.NaN;
+  return Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : DEFAULT_LOOT_DROP_CHANCE;
+}
+
 export const LOOT_DROP_CONFIG: LootDropConfig = {
+  chanceOverride: lootDropChance(),
   quantity: 1,
 };
 

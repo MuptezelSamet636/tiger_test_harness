@@ -621,8 +621,9 @@ export class SessionScriptHost {
     this.rewardKill(payload, incident.metadataBit);
   }
 
-  // Kill XP for the character whose client reported the kill. Each incident
-  // is paid once, by its number, however many sockets it reaches.
+  // Kill XP and a loot roll for the character whose client reported the kill.
+  // Each incident is paid once, by its number, however many sockets it
+  // reaches.
   private rewardKill(payload: Buffer, metadataBit: number): void {
     const header = readIncidentHeader(payload, metadataBit);
     const character = this.context.joinIdentity()?.character;
@@ -639,10 +640,12 @@ export class SessionScriptHost {
       header.submitterId,
       character
     );
-    selfFamilyPublisherFor(character)?.grantXp(
-      killXp(),
-      `kill 0x${header.incidentNumber.toString(16)}`
-    );
+    const publisher = selfFamilyPublisherFor(character);
+    publisher?.grantXp(killXp(), `kill 0x${header.incidentNumber.toString(16)}`);
+    // The drop's nonce is the kill's own incident number and submitter, which
+    // the client's pickup (601) sends back. No per-combatant reward value is
+    // resolved, so the chance is TIGER_LOOT_DROP_CHANCE's (loot-policy.ts).
+    publisher?.dropLoot(header.incidentNumber, header.submitterId, 0);
   }
 
   // The authored host scripts run for as long as the activity does: the host
