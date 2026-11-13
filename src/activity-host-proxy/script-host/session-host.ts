@@ -18,6 +18,7 @@ import { activityName as activityNameForId } from "../../content/activities";
 import { activityBundleItemType } from "../../content/row-types";
 import { readDebugToggles } from "../../dev-config/debug-toggles";
 import { resolveScriptHandles } from "../../env";
+import { activityCompleteXp, killXp } from "../../investment/stubs/xp-policy";
 import { powerLevelOf, selfFamilyPublisherFor } from "../../players/registry";
 import type { ActivityHostKind } from "../activity-host";
 import { activityInstanceFor } from "../activity-instance";
@@ -38,6 +39,7 @@ import {
   isKillFamilyIncident,
   isPlayerDeathIncident,
   parseIncident,
+  readIncidentHeader,
 } from "../mission/incident";
 import type { HostSession, PlayerHosts } from "../player-hosts";
 import { playerKeyFromCharacter } from "../rsat";
@@ -107,6 +109,28 @@ interface SessionScriptHostContext {
 
 // The session's side of the activity's script host: starting it, ticking it,
 // and feeding it what the client senses and reports.
+
+// Incident numbers already paid out, per character: a kill pays XP once even
+// if its incident reaches more than one of the player's sockets. Bounded so a
+// long session can't grow it without end.
+const rewardedIncidents = new Map<bigint, Set<number>>();
+const REWARDED_INCIDENTS_MAX = 4096;
+
+function firstRewardFor(character: bigint, incidentNumber: number): boolean {
+  let seen = rewardedIncidents.get(character);
+  if (!seen) {
+    seen = new Set();
+    rewardedIncidents.set(character, seen);
+  }
+  if (seen.has(incidentNumber)) {
+    return false;
+  }
+  if (seen.size >= REWARDED_INCIDENTS_MAX) {
+    seen.clear();
+  }
+  seen.add(incidentNumber);
+  return true;
+}
 export class SessionScriptHost {
   // The activity's script host, when this socket built it (the FAH).
   private ownHost: ScriptHost | undefined;
@@ -594,6 +618,31 @@ export class SessionScriptHost {
       killer: { characterKey: character },
       victim: {},
     });
+    this.rewardKill(payload, incident.metadataBit);
+  }
+
+  // Kill XP for the character whose client reported the kill. Each incident
+  // is paid once, by its number, however many sockets it reaches.
+  private rewardKill(payload: Buffer, metadataBit: number): void {
+    const header = readIncidentHeader(payload, metadataBit);
+    const character = this.context.joinIdentity()?.character;
+    if (!header || character === undefined) {
+      return;
+    }
+    if (!firstRewardFor(character, header.incidentNumber)) {
+      return;
+    }
+    event_message(
+      "activities:script: kill incident=0x%x submitter=%d:0x%I64x char=0x%I64x",
+      header.incidentNumber,
+      header.submitterKind,
+      header.submitterId,
+      character
+    );
+    selfFamilyPublisherFor(character)?.grantXp(
+      killXp(),
+      `kill 0x${header.incidentNumber.toString(16)}`
+    );
   }
 
   // The authored host scripts run for as long as the activity does: the host
@@ -691,6 +740,7 @@ export class SessionScriptHost {
         character,
         publisher ? "" : " (no BAP session)"
       );
+      publisher?.grantXp(activityCompleteXp(), `activity ${activityId} complete`);
       publisher?.completeActivity?.(activityId);
     }
   }

@@ -123,6 +123,34 @@ function scanRefs(
   return refs;
 }
 
+// The common header 808004C9 the metadata opens with: u32 incident number,
+// then 808044A3 {3-bit submitter kind, u64 submitter id} - the 99 bits
+// incidentCarriesU32 skips. Read off 17 kill incidents of the 41375 PS4
+// client: the numbers count up (0x45A69190, 0x45A69192, ...), the kind is 2
+// and the id the reporting character's soid (0x200000002).
+export interface IncidentHeader {
+  incidentNumber: number;
+  submitterId: bigint;
+  submitterKind: number;
+}
+
+export function readIncidentHeader(
+  payload: Buffer,
+  metadataBit: number
+): IncidentHeader | undefined {
+  if (metadataBit + 99 > payload.length * 8) {
+    return;
+  }
+  const high = BigInt(readBits(payload, metadataBit + 35, 32));
+  const low = BigInt(readBits(payload, metadataBit + 67, 32));
+  return {
+    incidentNumber: readBits(payload, metadataBit, 32) >>> 0,
+    submitterKind: readBits(payload, metadataBit + 32, 3),
+    // biome-ignore lint/suspicious/noBitwiseOperators: u64 from two u32s
+    submitterId: (high << 32n) | low,
+  };
+}
+
 // Does the metadata after the 99-bit common header hold `value` as a u32 at
 // any bit offset? The fields before gather_material's u32 (808049FE) are not
 // fixed-width, so this scans the way scanRefs scans for refs.

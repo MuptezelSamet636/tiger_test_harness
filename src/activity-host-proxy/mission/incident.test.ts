@@ -10,6 +10,7 @@ import {
   incidentCarriesU32,
   isKillFamilyIncident,
   parseIncident,
+  readIncidentHeader,
 } from "./incident";
 
 // Envelope: 4b N, N x 32b names, 9b metadata byte length L, then the
@@ -108,5 +109,25 @@ describe("incident name constants", () => {
         expect(registry.has(hash), name).toBe(true);
       }
     }
+  });
+});
+
+describe("readIncidentHeader", () => {
+  // A kill the 41375 PS4 client reported (metadata at bit 91).
+  const KILL = Buffer.from(
+    "721ca25ab9fa1f7544cf9528b4d23428000000080000000b0f7fc4008e03c46c0bedc354f961c03642e2d69c402638000000003424000000415034260400000000310000000c08e4ee2b83302393b8b811c9dc580000001000000016c102498923d9179a5b3d51cf4a4b811c9dc5c08e4ee2c000000000000000200000000000000000f6f376078f94fbe7e501206bf06ca39ab4e2d67f4f7efbab5798ac3246501206bf06ca39ab4e2d67f4568013a33ae9dc75e0",
+    "hex"
+  );
+
+  it("reads the incident number and the submitting character", () => {
+    expect(readIncidentHeader(KILL, 91)).toEqual({
+      incidentNumber: 0x45_a6_91_a1,
+      submitterKind: 2,
+      submitterId: 0x2_0000_0002n,
+    });
+  });
+
+  it("refuses a payload too short for the header", () => {
+    expect(readIncidentHeader(KILL.subarray(0, 20), 91)).toBeUndefined();
   });
 });
