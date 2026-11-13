@@ -21,6 +21,12 @@ import {
   lootTableForCharacter,
 } from "../../../investment/loot";
 import type { ItemPrimaryStat } from "../../../investment/primary-stat";
+import {
+  gridIndexForDef,
+  hasTalentGrid,
+  talentGridProgression,
+} from "../../../investment/talent-grid";
+import { loadWebTigerEnv } from "../../../env";
 import { k_empty_name_hash } from "../../../utils/name-hash";
 import { characterStats, weaponStats } from "./character-stats";
 import {
@@ -346,25 +352,59 @@ export function inventoryItem(
       unknown2: primary.quality,
     },
     defIndex: item.defIndex,
-    // The talent grid and the progression row index are none, the row
-    // carrying only the item's talent XP. The unlock flag rebuild looks up the
-    // grid tag of every bag and equipped item, and the client only streams in
-    // the grids its item defs name, so any other index is never resident and
-    // the rebuild (sub_831B1A60) clears its valid byte: no activity status is
-    // computed and every director node says "Requirements Not Met".
-    unknown4: {
-      unknown0: {
-        unknown0: item.talentXp,
-        unknown1: 0,
-        unknown2: undefined,
-        unknown3: NO_INDEX,
-      },
-      unknown1: undefined,
-      unknown2: NO_INDEX,
-      unknown3: undefined,
-      unknown4: undefined,
-      unknown5: undefined,
+    unknown4: talentGridInstance(item),
+  };
+}
+
+// TIGER_SEND_TALENT_GRIDS=0 in .env goes back to sending no grid at all.
+let sendGridsValue: boolean | undefined;
+function sendTalentGrids(): boolean {
+  if (sendGridsValue === undefined) {
+    loadWebTigerEnv();
+    sendGridsValue = process.env.TIGER_SEND_TALENT_GRIDS?.trim() !== "0";
+  }
+  return sendGridsValue;
+}
+
+// 808043C6: 36 u8, taken as one activated-step count per node like the
+// alpha's 50-wide array (an assumption: the width differs and the live layout
+// is unconfirmed).
+const LIVE_TALENT_NODE_BYTES = 36;
+
+// The item's talent grid instance (80801846): its progression row (talent
+// XP, the grid's progression index), the grid index and the node states.
+//
+// Upstream sent the grid and progression as none, because the unlock flag
+// rebuild looks up the grid tag of every bag and equipped item and the client
+// only streams in the grids its item defs name: any other index is never
+// resident, the rebuild (sub_831B1A60) clears its valid byte, no activity
+// status is computed and every director node says "Requirements Not Met".
+// The item def's own grid is the one the client streams in, so it is sent
+// here; an item without a grid keeps none.
+function talentGridInstance(item: LoadoutItem) {
+  const withGrid = sendTalentGrids() && hasTalentGrid(item.defIndex);
+  // 0xFF is talentGridProgression's "none" (the alpha's u8 field); this one is
+  // an i16.
+  const progression = withGrid ? talentGridProgression(item.defIndex) : 0xff;
+  return {
+    unknown0: {
+      unknown0: item.talentXp,
+      unknown1: 0,
+      unknown2: undefined,
+      unknown3: progression === 0xff ? NO_INDEX : progression,
     },
+    unknown1: undefined,
+    unknown2: withGrid ? gridIndexForDef(item.defIndex) : NO_INDEX,
+    unknown3: withGrid
+      ? {
+          unknown0: Array.from(
+            { length: LIVE_TALENT_NODE_BYTES },
+            (_, i) => item.talentNodes[i] ?? 0
+          ),
+        }
+      : undefined,
+    unknown4: undefined,
+    unknown5: undefined,
   };
 }
 
