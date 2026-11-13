@@ -60,7 +60,10 @@ export function talentGridReaders(
                   nameHash: link.name_hash,
                   target: link.unknown04,
                   node: link.node,
+                  step: link.step,
+                  index: link.index,
                   ability: link.unknown0b,
+                  word: link.unknown0c,
                 })),
                 stats: step.stats.map((stat: any) => ({
                   key: stat.key,

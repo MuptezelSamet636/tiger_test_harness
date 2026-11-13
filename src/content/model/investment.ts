@@ -99,6 +99,11 @@ export interface TalentGridStepLink {
   node: number;
   // A modifier's target ability (link +0x04).
   target: number;
+  // A chain link's step and index (link +0x09 / +0x0A), 0xFF for none.
+  step?: number;
+  index?: number;
+  // Link +0x0C (a grant's slot << 24).
+  word?: number;
 }
 
 export interface TalentGridStep {
