@@ -79,6 +79,8 @@ export interface Vendor {
 
 export interface TalentGridStep {
   levelRequirement: number;
+  // Perk table indices the step grants while active (builds that read them).
+  perks?: readonly number[];
   // Some node whose binaryPairHash is this must be active, k_empty_name_hash
   // for none.
   requiredNodeHash: number;

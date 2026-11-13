@@ -8,7 +8,7 @@ import {
   wireTalentStatus,
 } from "../../investment/talent-grid";
 import { e_queuez_family_type } from "../queuez";
-import { buildSelfUpdateBody } from "../queuez/baselines";
+import { buildPeerUpdateBody, buildSelfUpdateBody } from "../queuez/baselines";
 import {
   buildTalentGridActivateStepResponseBody,
   buildTalentGridBinarySwapResponseBody,
@@ -75,5 +75,17 @@ export const talentGridRequest: WorldServerHandler = async (
       ]),
       `self delta after ${label}`
     );
+    // An equipped item's new perks ride the gear block, which the peer
+    // family carries to the world.
+    if (character.loadout.item(plan.itemSoid)?.equipSlot != null) {
+      ctx.pushFamily(
+        buildPeerUpdateBody(
+          ctx.accountSoid(),
+          ctx.nextFamilyVersion(e_queuez_family_type._queuez_family_type_peer),
+          character
+        ),
+        `peer delta after ${label}`
+      );
+    }
   }
 };

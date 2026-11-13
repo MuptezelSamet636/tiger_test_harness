@@ -22,6 +22,7 @@ import {
 } from "../../../investment/loot";
 import type { ItemPrimaryStat } from "../../../investment/primary-stat";
 import {
+  activeTalentPerks,
   gridIndexForDef,
   hasTalentGrid,
   talentGridProgression,
@@ -484,6 +485,28 @@ function equipSlots(character: CharacterRecord) {
   return slots;
 }
 
+// The subclass build's perks, then every equipped item's active talent perks
+// (activeTalentPerks), deduplicated, at most GEAR_PERK_SLOTS.
+function gearPerks(
+  character: CharacterRecord,
+  buildPerks: readonly number[]
+): number[] {
+  const perks = new Set<number>(buildPerks);
+  if (sendTalentGrids()) {
+    const subclassSlot = equipSlotIds().subclass;
+    for (let slot = 0; slot < 20; slot++) {
+      const item = character.loadout.equipped(slot);
+      // The subclass's own perks come from its build above.
+      if (item && slot !== subclassSlot) {
+        for (const perk of activeTalentPerks(item)) {
+          perks.add(perk);
+        }
+      }
+    }
+  }
+  return [...perks].slice(0, GEAR_PERK_SLOTS);
+}
+
 // The gear block the select, roster and inspection screens and the peer
 // family show; the player's combat stats are read from here, its own included.
 function gear(character: CharacterRecord): GearValue {
@@ -512,12 +535,17 @@ function gear(character: CharacterRecord): GearValue {
         unknown1: 0n,
       })),
     },
-    // The build's perks, void subclass node perks included.
+    // The build's perks, void subclass node perks included, then the perks
+    // the equipped gear's talent nodes grant (a scope, a perk), which is
+    // what the character in the world runs with.
     unknown5: {
-      unknown0: Array.from(
-        { length: GEAR_PERK_SLOTS },
-        (_, slot) => build.perks[slot] ?? -1
-      ),
+      unknown0: (() => {
+        const perks = gearPerks(character, build.perks);
+        return Array.from(
+          { length: GEAR_PERK_SLOTS },
+          (_, slot) => perks[slot] ?? -1
+        );
+      })(),
     },
     unknown6: { unknown0: pad16([]) },
     unknown7: { unknown0: pad16(GEAR_LIST_7) },

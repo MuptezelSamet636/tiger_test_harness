@@ -309,3 +309,27 @@ export async function applyTalentPlan(
     await store.setItemTalentNode(plan.itemSoid, mutation.node, mutation.value);
   }
 }
+
+// The perks an item's grid grants as it stands: the perks of each node's
+// activated steps (the first talentNodes[node] of them), an auto-granted node
+// counting as one step activated even before the server records it.
+export function activeTalentPerks(item: {
+  defIndex: number;
+  talentNodes: readonly number[];
+}): number[] {
+  const grid = talentGridDefinitionForDef(item.defIndex);
+  if (!grid) {
+    return [];
+  }
+  const perks: number[] = [];
+  for (const node of grid.nodes) {
+    const activated = Math.max(
+      item.talentNodes[node.index] ?? 0,
+      node.autoGranted ? 1 : 0
+    );
+    for (const step of node.steps.slice(0, activated)) {
+      perks.push(...(step.perks ?? []));
+    }
+  }
+  return perks;
+}

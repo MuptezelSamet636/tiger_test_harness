@@ -55,6 +55,7 @@ export function talentGridReaders(
               steps: node.steps.map((step: any) => ({
                 levelRequirement: step.level_requirement,
                 requiredNodeHash: step.required_node_hash,
+                perks: step.perks.map((perk: { perk: number }) => perk.perk),
               })),
             })),
           }
