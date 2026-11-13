@@ -48,6 +48,8 @@ export interface CharacterAppearance {
 export interface AccountRecord {
   name: string;
   platformId: bigint;
+  // The settings the client last uploaded (701 body), when stored.
+  profile?: Buffer | null;
   soid: bigint;
 }
 
@@ -110,6 +112,9 @@ export interface CharacterStore {
   // Persist one 80801BF3 activated-step count (talent_grid_activate_step /
   // talent_grid_binary_swap).
   setItemTalentNode(soid: bigint, node: number, value: number): Promise<void>;
+  // Persist the account's settings (701 body). Optional: a store without it
+  // keeps them for the session only.
+  setAccountProfile?(soid: bigint, profile: Buffer): Promise<void>;
   // Persist an item's talent XP (gear levelling). Optional: a store without it
   // keeps the XP in memory only.
   setItemTalentXp?(soid: bigint, talentXp: number): Promise<void>;

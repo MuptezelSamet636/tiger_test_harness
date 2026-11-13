@@ -1,3 +1,4 @@
+import { setAccountProfile } from "../../investment/account-profiles";
 import { event_message } from "@blamnetwork/datamine";
 import { BapMessageType } from "../../lib/bap-wire/constants";
 import { e_queuez_family_type } from "../queuez";
@@ -10,7 +11,18 @@ import {
 import { bapBuild } from "../versions";
 import type { WorldServerHandler } from "./context";
 
-export const profileSetAccountProfile: WorldServerHandler = (ctx, message) => {
+export const profileSetAccountProfile: WorldServerHandler = async (
+  ctx,
+  message
+) => {
+  // The client's settings (controls, brightness, vibration): kept verbatim
+  // and echoed back in the self primary on the next sign-in.
+  const account = ctx.account();
+  if (account) {
+    const stored = Buffer.from(message.body);
+    setAccountProfile(account.soid, stored);
+    await ctx.store.setAccountProfile?.(account.soid, stored);
+  }
   const body = buildProfileSetAccountProfileResponseBody();
   ctx.send({
     msgType: BapMessageType.ClientToWorldServerResponse,

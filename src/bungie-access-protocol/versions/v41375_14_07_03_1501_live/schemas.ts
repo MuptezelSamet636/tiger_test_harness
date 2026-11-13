@@ -13,6 +13,7 @@ export function defineSchemas(self: SelfSchemas) {
     Unknown8080181A,
     Unknown8080185C,
     Unknown8080193C,
+    Unknown80801716,
   } = self;
   // 80800B1A @0x82275f70, size 0x30
   // login_account request inner
@@ -115,6 +116,13 @@ export function defineSchemas(self: SelfSchemas) {
   // director_complete_bink_activity response (nid 105)
   const DirectorCompleteBinkActivityResponse = rsat.schema(0x80801702, {
     unknown0: rsat.nested(Unknown80801796),
+  });
+
+  // 808016DD, size 0x440 (d1preservation's request table for 1.29 names
+  // the same tag): profile_set_account_profile request (nid 701), the
+  // account settings the self primary carries back as member 3.
+  const ProfileSetAccountProfileRequest = rsat.schema(0x808016dd, {
+    profile: rsat.nested(Unknown80801716),
   });
 
   // 8080189B @0x821feb24, size 0x8, headerChecksum 0x30047ead
@@ -323,6 +331,7 @@ export function defineSchemas(self: SelfSchemas) {
     DirectorEnterOrbitResponse,
     DirectorCompleteBinkActivityRequest,
     DirectorCompleteBinkActivityResponse,
+    ProfileSetAccountProfileRequest,
     ProfileSetAccountProfileResponse,
     ProfileSetCharacterProfileRequest,
     ProfileSetCharacterProfileResponse,

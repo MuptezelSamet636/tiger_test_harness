@@ -1,3 +1,4 @@
+import { setAccountProfile } from "../../investment/account-profiles";
 import { event_message } from "@blamnetwork/datamine";
 import type { CharacterRecord } from "../../investment/character-store";
 import {
@@ -20,6 +21,9 @@ export const loginAccount: WorldServerHandler = async (ctx, message) => {
     "guardian"
   );
   ctx.signInAccount(account, req?.platformId ?? 0n);
+  if (account.profile) {
+    setAccountProfile(account.soid, account.profile);
+  }
   if (req) {
     // The account nest is undecoded; its bytes are logged so the account key
     // can be checked against the gamertag / XUID.

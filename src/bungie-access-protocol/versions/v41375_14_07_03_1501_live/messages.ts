@@ -274,6 +274,16 @@ export type CharacterProfileValue = rsat.Infer<SelfSchemas["Unknown8080193C"]>;
 // profile_set_character_profile (702) body as stored on the character. Holds
 // the ammo fractions and the orbit destination key (unknown3 of the profile
 // body).
+export type AccountProfileValue = rsat.Infer<SelfSchemas["Unknown80801716"]>;
+
+// The account settings in a stored profile_set_account_profile (701) body.
+export function parseAccountProfile(body: Buffer): AccountProfileValue | null {
+  return (
+    tryDecode(liveBap().schemas.ProfileSetAccountProfileRequest, body)
+      ?.profile ?? null
+  );
+}
+
 export function parseCharacterProfile(
   body: Buffer
 ): CharacterProfileValue | null {

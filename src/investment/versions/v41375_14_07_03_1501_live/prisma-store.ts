@@ -283,7 +283,15 @@ export class PrismaCharacterStore implements CharacterStore {
       soid: soidFor(SOID_TYPE_ACCOUNT, row.id),
       platformId,
       name: row.name,
+      profile: row.profile ? Buffer.from(row.profile) : null,
     };
+  }
+
+  async setAccountProfile(soid: bigint, profile: Buffer): Promise<void> {
+    await this.prisma.account.update({
+      where: { id: soidRowId(soid) },
+      data: { profile },
+    });
   }
 
   async account(soid: bigint): Promise<AccountRecord | null> {

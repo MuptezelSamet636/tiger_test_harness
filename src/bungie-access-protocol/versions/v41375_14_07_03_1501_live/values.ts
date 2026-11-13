@@ -55,7 +55,12 @@ import {
   directorDebugFlagList,
   directorOfferSlotValues,
 } from "./director-policy";
-import { type CharacterProfileValue, parseCharacterProfile } from "./messages";
+import {
+  type CharacterProfileValue,
+  parseAccountProfile,
+  parseCharacterProfile,
+} from "./messages";
+import { accountProfile } from "../../../investment/account-profiles";
 import type {
   InspectionCharacterValue,
   InspectionPrimaryValue,
@@ -128,7 +133,9 @@ export function selfPrimary(
       soid: accountSoid,
       roster: roster.length ? { soids: roster } : undefined,
       characterSoid: characterSoid ?? undefined,
-      unknown3: undefined,
+      // The account settings (controls, brightness, vibration) the client
+      // last uploaded (701), absent before the first upload.
+      unknown3: storedAccountProfile(accountSoid),
       unknown4: undefined,
       unknown5: undefined,
       unknown6: undefined,
@@ -141,6 +148,11 @@ export function selfPrimary(
       unknown13: undefined,
     },
   };
+}
+
+function storedAccountProfile(accountSoid: bigint) {
+  const body = accountProfile(accountSoid);
+  return (body && parseAccountProfile(body)) ?? undefined;
 }
 
 // The profile the client last uploaded (702), else a fresh one: full
