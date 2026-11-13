@@ -45,8 +45,9 @@ export function loadBapBuild(): LiveBapBuild {
         })
       ),
     messages,
-    // Xbox Live: account type 1, a u64 per platform id.
-    platformAccount: { type: 1, idBytes: 8 },
+    // PSN (the PS4 client under shadPS4): account type 7, a 36-byte platform
+    // id, as the later builds send. Xbox Live was type 1 with a u64 id.
+    platformAccount: { type: 7, idBytes: 36 },
     // The create screen only moves on once the self family shows a signed-in
     // character, and nothing on this client sends login_character for a new
     // character.

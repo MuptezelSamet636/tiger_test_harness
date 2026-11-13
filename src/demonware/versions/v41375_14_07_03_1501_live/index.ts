@@ -1,16 +1,18 @@
 import type { DemonwareBuild } from "../demonware-build";
 
-// Destiny's Demonware title, set in demonware_lobby_update.
-const DEMONWARE_TITLE_ID = 18_407;
+// Destiny's Demonware title, set in demonware_lobby_update. 18407 is the
+// Xbox 360 client's; the PS4 client (CUSA00568) uses 5474.
+const DEMONWARE_TITLE_ID = 5474;
 
 // 1021 is the lobby port after Demonware auth (demonware_lobby_update); 1020
 // is the unauthenticated one.
 const LOBBY_PORTS = [1020, 1021, 1011] as const;
 
-// bdAuth task ids: the client asks with 42, the reply must carry 43
-// (checked at 0x83078C44) and code 700 (checked at 0x83078CB4).
-const AUTH_TASK_REQUEST = 42;
-const AUTH_TASK_REPLY = 43;
+// bdAuth task ids: the 360 client asks with 42 and wants 43 back (checked at
+// 0x83078C44, code 700 at 0x83078CB4); the PS4 client asks with 46 and wants
+// 47.
+const AUTH_TASK_REQUEST = 46;
+const AUTH_TASK_REPLY = 47;
 const AUTH_CODE_OK = 700;
 
 // bdAuthTicket magic, checked at 0x83078E60 (bytes DE AD BD EF).
@@ -26,7 +28,9 @@ export function loadDemonwareBuild(): DemonwareBuild {
       titleId: DEMONWARE_TITLE_ID,
     },
     lobbyPorts: LOBBY_PORTS,
-    lobbyProtocol: 200,
-    matchMakingService: 21,
+    // The PS4 client speaks lobby protocol 210 and matchmaking service 138
+    // (the 360 client: 200 and 21).
+    lobbyProtocol: 210,
+    matchMakingService: 138,
   };
 }

@@ -5,6 +5,7 @@ import {
   type RsatSchema,
   type rsat,
 } from "@blamnetwork/rsat";
+import { packColorGroup } from "../../../investment/color-group";
 import type { LootNonce } from "../../../investment/loot";
 import { e_server_message_network_id } from "../../rsat/constants";
 import {
@@ -190,10 +191,10 @@ function parseLoginCreateCharacterRequest(
       skinColor: f0.unknown4,
       lipColor: f0.unknown5,
       eyeColor: f0.unknown6,
-      // Hair / feature colour is a group of three; the store keeps a single
-      // colour, slot 0.
-      hairColor: f0.unknown7.unknown0,
-      featureColor: f0.unknown8.unknown0,
+      // Hair / feature colour is a group of three; the store keeps one
+      // integer per colour, so each group is packed into it (color-group.ts).
+      hairColor: packColorGroup(f0.unknown7),
+      featureColor: packColorGroup(f0.unknown8),
       decalColor: f0.unknown9,
       personalityId: f0.unknown10,
       helmetPreference: f0.unknown11,

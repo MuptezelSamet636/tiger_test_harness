@@ -457,7 +457,12 @@ export class BungieAccessProtocolSession implements SelfFamilyPublisher {
         );
         break;
       case BapMessageType.ClientToBapGetActivityHostProxyRequest:
-        this.handleGetActivityHostProxy(message);
+        // Queued behind the world-server requests ahead of it, so the
+        // activity host reply can't overtake the replies the PS4 client
+        // expects first.
+        this.enqueue("ahp", async () => {
+          this.handleGetActivityHostProxy(message);
+        });
         break;
       case BapMessageType.ClientToXetrovNotification:
         this.checkXetrovBuild(message.body);

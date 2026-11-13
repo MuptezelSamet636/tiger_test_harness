@@ -11,6 +11,7 @@ import {
   statOverride,
 } from "../../../investment/character-level";
 import type { CharacterRecord } from "../../../investment/character-store";
+import { unpackColorGroup } from "../../../investment/color-group";
 import { bagIndexForBucket } from "../../../investment/inventory-layout";
 import type { LoadoutItem, StatPair } from "../../../investment/loadout";
 import { starterSubclassDef } from "../../../investment/loadout";
@@ -71,15 +72,11 @@ function appearanceEc(character: CharacterRecord) {
   return { unknown0: a.race, unknown1: a.gender, unknown2: a.classIndex };
 }
 
-// Hair and feature colour are a group of three each (true meaning unknown);
-// every slot of a group gets the character's one colour.
+// Hair and feature colour are a group of three each, unpacked from the one
+// stored integer (color-group.ts).
 function appearanceF0(character: CharacterRecord): AppearanceF0Value {
   const a = character.appearance;
-  const group = (color: number) => ({
-    unknown0: color,
-    unknown1: color,
-    unknown2: color,
-  });
+  const group = unpackColorGroup;
   return {
     unknown0: a.faceIndex,
     unknown1: a.hairIndex,
