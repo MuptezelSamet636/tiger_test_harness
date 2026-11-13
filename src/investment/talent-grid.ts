@@ -439,3 +439,48 @@ export function describeActiveTalentNodes(item: {
     })
     .join(" ");
 }
+
+const LINK_NONE = 0xff;
+
+// Ability overrides an item's active steps make through chain links: a link
+// with node, step, index and ability all set points at another node's grant
+// (node, step, link index) and puts its own ability in that grant's slot.
+// Voidwalker's Blink is one: node 8's link {node 14, step 0, index 0,
+// ability 0} turns node 14's jump grant (ability 4, slot 3) into ability 0.
+// Only applies while the pointed-at node is active.
+export function activeAbilityOverrides(item: {
+  defIndex: number;
+  talentNodes: readonly number[];
+}): { ability: number; slot: number }[] {
+  const grid = talentGridDefinitionForDef(item.defIndex);
+  if (!grid) {
+    return [];
+  }
+  const overrides: { ability: number; slot: number }[] = [];
+  for (const { steps } of activeSteps(item)) {
+    for (const step of steps) {
+      for (const link of step.links ?? []) {
+        if (
+          link.node === LINK_NONE ||
+          link.step === undefined ||
+          link.step === LINK_NONE ||
+          link.index === undefined ||
+          link.index === LINK_NONE ||
+          link.ability === LINK_NONE
+        ) {
+          continue;
+        }
+        const targetNode = grid.nodes[link.node];
+        const target = targetNode?.steps[link.step]?.links?.[link.index];
+        if (
+          !(targetNode && target?.word) ||
+          !isTalentNodeActive(grid, item, targetNode)
+        ) {
+          continue;
+        }
+        overrides.push({ ability: link.ability, slot: target.word >>> 24 });
+      }
+    }
+  }
+  return overrides;
+}

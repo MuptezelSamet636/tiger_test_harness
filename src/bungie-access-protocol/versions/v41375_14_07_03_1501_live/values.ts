@@ -26,6 +26,7 @@ import {
 import type { ItemPrimaryStat } from "../../../investment/primary-stat";
 import {
   activeAbilityModifiers,
+  activeAbilityOverrides,
   activeTalentNodes,
   describeActiveTalentNodes,
   activeTalentPerks,
@@ -535,15 +536,22 @@ function characterSubclassBuild(character: CharacterRecord): SubclassBuild {
   const grants = talentGridGrants(gridIndex).filter((grant) =>
     active.has(grant.node)
   );
+  const abilities = start.abilities.map((fallback, slot) => {
+    const best = grants
+      .filter((grant) => grant.slot === slot)
+      .sort((a, b) => b.level - a.level)[0];
+    return best ? best.ability : fallback;
+  });
+  // Chain links that swap a granted ability (Blink for the jump).
+  for (const { slot, ability } of activeAbilityOverrides(item)) {
+    if (slot < abilities.length) {
+      abilities[slot] = ability;
+    }
+  }
   const build = {
     grid: start.grid,
     nodes: [...active],
-    abilities: start.abilities.map((fallback, slot) => {
-      const best = grants
-        .filter((grant) => grant.slot === slot)
-        .sort((a, b) => b.level - a.level)[0];
-      return best ? best.ability : fallback;
-    }),
+    abilities,
     perks: activeTalentPerks(item),
   };
   logSubclassBuild(character, item, build);
