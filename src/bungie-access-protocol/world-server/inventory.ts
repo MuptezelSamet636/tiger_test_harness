@@ -1,3 +1,4 @@
+import { applyDismantle, planDismantle } from "../../investment/dismantle";
 import {
   buildInventoryResponseBody,
   e_server_message_network_id,
@@ -8,7 +9,8 @@ import type { WorldServerHandler } from "./context";
 const nid = e_server_message_network_id;
 
 // inventory_equip_item / unequip_item / perform_item_action (402..404), and
-// destroy_item (401) in a build that has it.
+// destroy_item (401) in a build that has it. perform_item_action is the
+// dismantle (investment/dismantle.ts).
 export const inventoryRequest: WorldServerHandler = async (
   ctx,
   message,
@@ -19,7 +21,22 @@ export const inventoryRequest: WorldServerHandler = async (
   let changed = false;
   let destroyed = false;
   let changedSoids: bigint[] = [];
-  if (soid !== null && loadout) {
+  let dismantled = "";
+  const character = ctx.character();
+  if (
+    soid !== null &&
+    character &&
+    networkId === nid._server_message_network_id_inventory_perform_item_action
+  ) {
+    const plan = planDismantle(character.loadout, soid);
+    if (plan) {
+      await applyDismantle(ctx.store, character, plan);
+      destroyed = true;
+      dismantled = ` dismantled def=${plan.target.defIndex} +${plan.glimmer} glimmer`;
+    } else {
+      dismantled = " not dismantled (equipped, stack or unknown)";
+    }
+  } else if (soid !== null && loadout) {
     const changes: { equipSlot: number | null; soid: bigint }[] = [];
     if (networkId === nid._server_message_network_id_inventory_destroy_item) {
       // The item leaves the bag for good; the client is told with a removal,
@@ -60,7 +77,8 @@ export const inventoryRequest: WorldServerHandler = async (
     message,
     buildInventoryResponseBody(networkId, ok),
     `inventory nid ${networkId} ${ok ? "ok" : "FAILED"} ` +
-      `soid=0x${(soid ?? 0n).toString(16)}${changed ? " loadout changed" : ""}`
+      `soid=0x${(soid ?? 0n).toString(16)}${changed ? " loadout changed" : ""}` +
+      dismantled
   );
   if (changed) {
     ctx.pushLoadoutChange(changedSoids, `inventory nid ${networkId}`);
