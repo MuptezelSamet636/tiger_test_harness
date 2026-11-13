@@ -389,3 +389,33 @@ export function activeTalentNodes(item: {
 }): Set<number> {
   return new Set(activeSteps(item).map(({ node }) => node.index));
 }
+
+// The ability modifiers an item's active steps carry: {modifier hash, target
+// ability} for every link with a name hash (a grant's is empty).
+export function activeAbilityModifiers(item: {
+  defIndex: number;
+  talentNodes: readonly number[];
+}): { hash: number; target: number }[] {
+  const found: { hash: number; target: number }[] = [];
+  for (const { steps } of activeSteps(item)) {
+    for (const step of steps) {
+      for (const link of step.links ?? []) {
+        if (link.nameHash !== k_empty_name_hash && link.nameHash !== 0) {
+          found.push({ hash: link.nameHash >>> 0, target: link.target });
+        }
+      }
+    }
+  }
+  return found;
+}
+
+// An item's whole perk list as the world reads it: the def's own perks, then
+// its active talent perks, deduplicated.
+export function itemPerks(item: {
+  defIndex: number;
+  talentNodes: readonly number[];
+}): number[] {
+  return [
+    ...new Set([...(itemDef(item.defIndex)?.perks ?? []), ...activeTalentPerks(item)]),
+  ];
+}

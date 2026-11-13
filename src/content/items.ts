@@ -40,6 +40,7 @@ function itemDefOf(record: ItemRecord): ItemDef {
     maxStack: record.maxStack,
     gridIndex: record.gridIndex,
     weaponStats: weaponBuckets().has(record.bucket) ? record.stats : [],
+    perks: record.perks,
   };
 }
 

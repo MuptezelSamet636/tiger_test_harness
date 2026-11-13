@@ -46,6 +46,9 @@ function itemRecordOf(def: any): ItemRecord {
     stats: equipable
       ? stats.map((stat) => [stat.key, stat.value] as const)
       : [],
+    perks: ((def.stats?.perks ?? []) as { perk: number }[])
+      .map((perk) => perk.perk)
+      .filter((perk) => perk >= 0),
   };
 }
 

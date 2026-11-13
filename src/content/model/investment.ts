@@ -39,6 +39,8 @@ export interface ItemDef {
   // Weapons only: the stat block as the def authors it, {investment stat,
   // value}.
   weaponStats: readonly (readonly [number, number])[];
+  // Perk table indices the def's stat block grants (builds that read them).
+  perks?: readonly number[];
 }
 
 // An item definition as a reader gives it: items.ts turns the equip unlock's
@@ -50,6 +52,8 @@ export interface ItemRecord
   classFlag: number | null;
   // Equipable items: the stat block, {investment stat, value}.
   stats: readonly (readonly [number, number])[];
+  // The stat block's perk table indices (builds that read them).
+  perks?: readonly number[];
 }
 
 export interface VendorPurchase {
@@ -86,6 +90,17 @@ export interface TalentGridStepStat {
   value: number;
 }
 
+export interface TalentGridStepLink {
+  // The ability a grant binds (link +0x0B), 0xFF for none.
+  ability: number;
+  // The modifier's name hash, k_empty_name_hash for a grant.
+  nameHash: number;
+  // The node a chain link follows (link +0x08), 0xFF for none.
+  node: number;
+  // A modifier's target ability (link +0x04).
+  target: number;
+}
+
 export interface TalentGridStep {
   levelRequirement: number;
   // Perk table indices the step grants while active (builds that read them).
@@ -93,6 +108,9 @@ export interface TalentGridStep {
   // Investment stats the step adds while active: value x scale on the stat
   // with that key (builds that read them).
   stats?: readonly TalentGridStepStat[];
+  // The step's ability links (builds that read them): a grant is {empty
+  // hash, ability, slot}, a modifier {modifier hash, target ability}.
+  links?: readonly TalentGridStepLink[];
   // Some node whose binaryPairHash is this must be active, k_empty_name_hash
   // for none.
   requiredNodeHash: number;

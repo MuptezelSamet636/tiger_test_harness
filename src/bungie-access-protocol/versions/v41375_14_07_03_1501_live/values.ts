@@ -24,9 +24,11 @@ import {
 } from "../../../investment/loot";
 import type { ItemPrimaryStat } from "../../../investment/primary-stat";
 import {
+  activeAbilityModifiers,
   activeTalentNodes,
   activeTalentPerks,
   gridIndexForDef,
+  itemPerks,
   hasTalentGrid,
   talentGridProgression,
 } from "../../../investment/talent-grid";
@@ -523,18 +525,50 @@ function gearPerks(
 ): number[] {
   const perks = new Set<number>(buildPerks);
   if (sendTalentGrids()) {
-    const subclassSlot = equipSlotIds().subclass;
+    const slots = equipSlotIds();
+    // The subclass's perks come from its build above, the weapons' go in
+    // their own lists (weaponPerkList).
+    const skip = new Set([slots.subclass, slots.primary, slots.special, slots.heavy]);
     for (let slot = 0; slot < 20; slot++) {
       const item = character.loadout.equipped(slot);
-      // The subclass's own perks come from its build above.
-      if (item && slot !== subclassSlot) {
-        for (const perk of activeTalentPerks(item)) {
+      if (item && !skip.has(slot)) {
+        for (const perk of itemPerks(item)) {
           perks.add(perk);
         }
       }
     }
   }
   return [...perks].slice(0, GEAR_PERK_SLOTS);
+}
+
+// One weapon slot's 16-entry perk list (itemPerks), or `fallback` (the
+// upstream constant) with talent grids off.
+function weaponPerkList(
+  character: CharacterRecord,
+  slot: number,
+  fallback: readonly number[]
+): number[] {
+  const item = character.loadout.equipped(slot);
+  if (!sendTalentGrids()) {
+    return pad16(fallback);
+  }
+  return pad16(item ? itemPerks(item).slice(0, 16) : []);
+}
+
+// The modifiers the equipped subclass's active nodes put on `ability` (a
+// jump's blink, a grenade's upgrade), at most 8.
+function abilityModifiers(character: CharacterRecord, ability: number): number[] {
+  const item = character.loadout.equipped(equipSlotIds().subclass);
+  if (!(item && sendTalentGrids()) || ability < 0) {
+    return [];
+  }
+  return [
+    ...new Set(
+      activeAbilityModifiers(item)
+        .filter((mod) => mod.target === ability)
+        .map((mod) => mod.hash)
+    ),
+  ].slice(0, 8);
 }
 
 // The gear block the select, roster and inspection screens and the peer
@@ -548,12 +582,18 @@ function gear(character: CharacterRecord): GearValue {
     // Ability slot i (grenade, super, melee, jump, movement) -> an ability
     // table index from the subclass's grid build.
     unknown1: {
-      unknown0: build.abilities.map((ability) => ({
-        unknown0: ability,
-        unknown1: {
-          unknown0: Array.from({ length: 8 }, () => k_empty_name_hash),
-        },
-      })),
+      unknown0: build.abilities.map((ability) => {
+        const mods = abilityModifiers(character, ability);
+        return {
+          unknown0: ability,
+          unknown1: {
+            unknown0: Array.from(
+              { length: 8 },
+              (_, i) => mods[i] ?? k_empty_name_hash
+            ),
+          },
+        };
+      }),
     },
     unknown2: {
       unknown0: Array.from({ length: 32 }, () => k_empty_name_hash),
@@ -577,9 +617,17 @@ function gear(character: CharacterRecord): GearValue {
         );
       })(),
     },
-    unknown6: { unknown0: pad16([]) },
-    unknown7: { unknown0: pad16(GEAR_LIST_7) },
-    unknown8: { unknown0: pad16(GEAR_LIST_8) },
+    // The primary / special / heavy weapon's perks: its def's and its active
+    // talent nodes' (its element among them). Upstream sent the starter
+    // special and heavy's lists here for every weapon, which kept every
+    // special arc.
+    unknown6: { unknown0: weaponPerkList(character, equipSlotIds().primary, []) },
+    unknown7: {
+      unknown0: weaponPerkList(character, equipSlotIds().special, GEAR_LIST_7),
+    },
+    unknown8: {
+      unknown0: weaponPerkList(character, equipSlotIds().heavy, GEAR_LIST_8),
+    },
     // The character stats, then the primary / special / heavy weapon stats
     // (character-stats.ts).
     unknown9: { unknown0: statSlots(characterStats(character)) },
