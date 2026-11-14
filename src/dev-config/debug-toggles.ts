@@ -30,6 +30,10 @@ export interface DebugToggles {
   // With allowGrantedEquip, keep non-kit armour equipped too. Off, only
   // weapons stay: granted armour crashes the PS4 client at sign-in.
   allowGrantedArmor?: boolean;
+  // Fill every gridded item's 8 talent roll bytes (80801846 member 4,
+  // 8080405E: per-node step selection read as byte / 255) with this value
+  // (0..255). Unset sends none. Under test for the armour sign-in crash.
+  itemRollByte?: number;
   // What every item's 80801711 {level, required level, quality} carries
   // instead of the row's own values: "zero" sends 0 / 0 / 0, "def" the def's
   // level block. Isolates the item object from an equip crash.
@@ -149,6 +153,13 @@ export function parseDebugToggles(raw: unknown): DebugTogglesRead {
           toggles.grantLevelQuality = value;
         } else {
           problems.push(`${key}: expected "def" or "zero"`);
+        }
+        break;
+      case "itemRollByte":
+        if (Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 255) {
+          toggles.itemRollByte = value as number;
+        } else {
+          problems.push(`${key}: expected a whole number 0..255`);
         }
         break;
       case "omitScriptRowTypes":

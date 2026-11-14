@@ -35,6 +35,7 @@ import {
   hasTalentGrid,
   talentGridProgression,
 } from "../../../investment/talent-grid";
+import { readDebugToggles } from "../../../dev-config/debug-toggles";
 import { loadWebTigerEnv } from "../../../env";
 import { k_empty_name_hash } from "../../../utils/name-hash";
 import { characterStats, weaponStats } from "./character-stats";
@@ -441,9 +442,18 @@ function talentGridInstance(item: LoadoutItem) {
           ),
         }
       : undefined,
-    unknown4: undefined,
+    // The talent roll bytes (8080405E), under test (debug-toggles.json
+    // itemRollByte): the client reads them as node step selections.
+    unknown4: withGrid ? itemRollBytes() : undefined,
     unknown5: undefined,
   };
+}
+
+function itemRollBytes() {
+  const byte = readDebugToggles().toggles.itemRollByte;
+  return byte === undefined
+    ? undefined
+    : { unknown0: Array.from({ length: 8 }, () => byte) };
 }
 
 // Select-character primary: soid and the roster. unknown2 (27 x i16)
