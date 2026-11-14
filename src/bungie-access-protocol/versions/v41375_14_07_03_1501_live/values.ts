@@ -152,26 +152,41 @@ export function selfPrimary(
   };
 }
 
-// TIGER_ECHO_ACCOUNT_PROFILE=1 sends the stored settings back. Off by
-// default: with them in the self primary the client crashed right after
-// login_character, though the body decodes exactly (8637 of 8640 bits). The
-// settings are still stored.
-let echoAccountProfileValue: boolean | undefined;
-function echoAccountProfile(): boolean {
+// TIGER_ECHO_ACCOUNT_PROFILE sends the stored account profile back in the
+// self primary. Off by default: with the whole profile echoed (=1 or =full)
+// the client crashed right after login_character, though the body decodes
+// exactly (8637 of 8640 bits). =settings echoes only unknown1 (808017D6: the
+// f32 pairs and the option ints/bools) and leaves out unknown0 (8080172C: the
+// 128 optional u64 list plus 4 u32). The profile is stored either way.
+type EchoAccountProfileMode = "off" | "settings" | "full";
+let echoAccountProfileValue: EchoAccountProfileMode | undefined;
+function echoAccountProfile(): EchoAccountProfileMode {
   if (echoAccountProfileValue === undefined) {
     loadWebTigerEnv();
+    const raw = process.env.TIGER_ECHO_ACCOUNT_PROFILE?.trim().toLowerCase();
     echoAccountProfileValue =
-      process.env.TIGER_ECHO_ACCOUNT_PROFILE?.trim() === "1";
+      raw === "1" || raw === "full"
+        ? "full"
+        : raw === "settings"
+          ? "settings"
+          : "off";
   }
   return echoAccountProfileValue;
 }
 
 function storedAccountProfile(accountSoid: bigint) {
-  if (!echoAccountProfile()) {
+  const mode = echoAccountProfile();
+  if (mode === "off") {
     return;
   }
   const body = accountProfile(accountSoid);
-  return (body && parseAccountProfile(body)) ?? undefined;
+  const parsed = body && parseAccountProfile(body);
+  if (!parsed) {
+    return;
+  }
+  return mode === "full"
+    ? parsed
+    : { unknown0: undefined, unknown1: parsed.unknown1 };
 }
 
 // The profile the client last uploaded (702), else a fresh one: full
