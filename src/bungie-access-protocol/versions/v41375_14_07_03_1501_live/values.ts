@@ -154,7 +154,9 @@ export function selfPrimary(
 
 // TIGER_ECHO_ACCOUNT_PROFILE sends the stored account profile back in the
 // self primary. Read once at harness start: editing .env needs a harness
-// restart. Off by default. Modes, largest first:
+// restart. Default options (confirmed on 15 Nov: no crashes across game
+// starts, and controls/brightness/vibration stick); off (or 0) disables it.
+// Modes, largest first:
 //   full (or 1)  the whole profile. The client crashed after login_character.
 //   settings     unknown1 only (808017D6), without unknown0 (8080172C, the 128
 //                optional u64 list plus 4 u32). Crashed in 2 of 3 game starts,
@@ -172,9 +174,11 @@ function echoAccountProfile(): EchoAccountProfileMode {
     echoAccountProfileValue =
       raw === "1" || raw === "full"
         ? "full"
-        : raw === "settings" || raw === "options"
-          ? raw
-          : "off";
+        : raw === "settings"
+          ? "settings"
+          : raw === "0" || raw === "off"
+            ? "off"
+            : "options";
     event_message(
       "networking:bap: account profile echo %s",
       echoAccountProfileValue
