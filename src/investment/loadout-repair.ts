@@ -4,7 +4,7 @@
 // the granted-gear equip crash is understood, equipped armour and weapons
 // outside the class kit go back to the bag too (LoadoutRepairOptions).
 
-import { bucketIds } from "../content/inventory";
+import { bucketIds, weaponBuckets } from "../content/inventory";
 import { itemDef } from "../content/items";
 import { type LoadoutSeed, starterItems } from "./loadout";
 
@@ -13,6 +13,11 @@ interface LoadoutRepairOptions {
   // allowGrantedEquip). Off, they go back to the bag on every read, so a
   // saved equip that crashes the console cannot crash-loop sign-in.
   allowGrantedEquip?: boolean;
+  // With allowGrantedEquip, keep non-kit ARMOUR equipped too
+  // (allowGrantedArmor). Off, only weapons stay: the PS4 client crashes
+  // signing in with granted armour equipped (purple helmet / gauntlets /
+  // legs / class item), while granted weapons sign in fine.
+  allowGrantedArmor?: boolean;
 }
 
 let gearBuckets: ReadonlySet<number> | undefined;
@@ -103,11 +108,13 @@ export function planLoadoutRepair(
       continue;
     }
     const kitItem = kitDefForSlot.get(row.equip_slot) === row.def_index;
+    const keepGranted =
+      options.allowGrantedEquip === true &&
+      (options.allowGrantedArmor === true ||
+        (def !== undefined && weaponBuckets().has(def.bucket)));
     const valid =
       def?.equipSlot === row.equip_slot &&
-      (kitItem ||
-        options.allowGrantedEquip ||
-        !renderedBuckets().has(def.bucket));
+      (kitItem || keepGranted || !renderedBuckets().has(def.bucket));
     if (!valid) {
       update(row.id, { equip_slot: null });
       slotOf.set(row.id, null);

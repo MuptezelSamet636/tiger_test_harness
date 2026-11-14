@@ -27,6 +27,9 @@ export interface DebugToggles {
   // repair sends any equipped item that is not the class starter kit's back to
   // the bag on read, so a bad equip can never crash-loop sign-in.
   allowGrantedEquip?: boolean;
+  // With allowGrantedEquip, keep non-kit armour equipped too. Off, only
+  // weapons stay: granted armour crashes the PS4 client at sign-in.
+  allowGrantedArmor?: boolean;
   // What every item's 80801711 {level, required level, quality} carries
   // instead of the row's own values: "zero" sends 0 / 0 / 0, "def" the def's
   // level block. Isolates the item object from an equip crash.
@@ -130,6 +133,13 @@ export function parseDebugToggles(raw: unknown): DebugTogglesRead {
       case "allowGrantedEquip":
         if (typeof value === "boolean") {
           toggles.allowGrantedEquip = value;
+        } else {
+          problems.push(`${key}: expected true or false`);
+        }
+        break;
+      case "allowGrantedArmor":
+        if (typeof value === "boolean") {
+          toggles.allowGrantedArmor = value;
         } else {
           problems.push(`${key}: expected true or false`);
         }
