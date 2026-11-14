@@ -2,6 +2,7 @@
 // store of each build (versions/<build>/prisma-store.ts); the in-memory store
 // here backs the tests.
 
+import type { VaultItem } from "./account-vault";
 import { levelForXp, xpForLevel } from "./character-level";
 import {
   CharacterLoadout,
@@ -118,6 +119,13 @@ export interface CharacterStore {
   // Persist an item's talent XP (gear levelling). Optional: a store without it
   // keeps the XP in memory only.
   setItemTalentXp?(soid: bigint, talentXp: number): Promise<void>;
+  // The account's vault: every item any of its characters put in an account
+  // bucket. Optional, with the two moves: a store without them has no vault.
+  vaultItems?(accountSoid: bigint): Promise<VaultItem[]>;
+  // The item leaves its character's bag for an account bucket.
+  moveItemToVault?(soid: bigint, vaultBucket: number): Promise<void>;
+  // The item leaves the vault for the character's bag (its def's bucket).
+  moveItemFromVault?(soid: bigint, characterSoid: bigint): Promise<void>;
 }
 
 export const CharacterStoreToken = Symbol("CharacterStore");

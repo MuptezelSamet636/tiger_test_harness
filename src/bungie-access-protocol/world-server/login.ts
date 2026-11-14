@@ -1,4 +1,5 @@
 import { setAccountProfile } from "../../investment/account-profiles";
+import { setAccountVault } from "../../investment/account-vault";
 import { event_message } from "@blamnetwork/datamine";
 import type { CharacterRecord } from "../../investment/character-store";
 import {
@@ -23,6 +24,15 @@ export const loginAccount: WorldServerHandler = async (ctx, message) => {
   ctx.signInAccount(account, req?.platformId ?? 0n);
   if (account.profile) {
     setAccountProfile(account.soid, account.profile);
+  }
+  if (ctx.store.vaultItems) {
+    const vault = await ctx.store.vaultItems(account.soid);
+    setAccountVault(account.soid, vault);
+    event_message(
+      "networking:bap:world: vault 0x%I64x %d item(s)",
+      account.soid,
+      vault.length
+    );
   }
   if (req) {
     // The account nest is undecoded; its bytes are logged so the account key

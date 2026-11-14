@@ -97,6 +97,10 @@ model character_item {
   // (src/investment/primary-stat.ts). 0 = seed from the def's level block.
   level           Int       @default(0)
   quality         Int       @default(0)
+  // Set while the item is in the account's vault: the account bucket it is
+  // kept in (22 armour, 23 general, 24 weapons). The item is then out of the
+  // character's bag; character_id stays its last owner.
+  vault_bucket    Int?
   created_at      DateTime  @default(now())
 
   @@index([character_id])

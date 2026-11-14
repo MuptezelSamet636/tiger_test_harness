@@ -347,6 +347,32 @@ function buildInventoryResponseBody(networkId: number, ok: boolean): Buffer {
   return encodeServerMessage(networkId, schema.response, status);
 }
 
+// The transfer request (405): which item, from which bucket, at which vendor.
+export interface ParsedVaultTransferRequest {
+  bucket: number;
+  defIndex: number;
+  itemSoid: bigint;
+  quantity: number;
+  vendorIndex: number;
+}
+
+export function parseVaultTransferRequest(
+  body: Buffer
+): ParsedVaultTransferRequest | null {
+  return tryDecode(liveBap().schemas.VaultTransferRequest, body);
+}
+
+export function buildVaultTransferResponseBody(
+  networkId: number,
+  ok: boolean
+): Buffer {
+  return encodeServerMessage(
+    networkId,
+    liveBap().schemas.VaultTransferResponse,
+    { unknown0: ok ? STATUS_OK : STATUS_FAILED }
+  );
+}
+
 function parseLootPickupItemRequest(
   body: Buffer
 ): ParsedLootPickupItemRequest | null {

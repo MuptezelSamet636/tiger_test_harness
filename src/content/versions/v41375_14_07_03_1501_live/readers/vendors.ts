@@ -19,6 +19,9 @@ export function vendorReaders(
           nameHash: row.name_hash,
           currencyDef:
             vendor.currency_item === NO_ITEM ? undefined : vendor.currency_item,
+          bucketMap: (
+            vendor.unknown24 as { unknown00: number; unknown01: number }[]
+          ).map((pair) => ({ bucket: pair.unknown00, target: pair.unknown01 })),
           purchases: vendor.purchases.map((purchase: any) => ({
             itemDef: purchase.item,
             quantity: purchase.quantity,

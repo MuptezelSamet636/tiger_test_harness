@@ -5,6 +5,7 @@ import {
   type character_item,
   PrismaClient,
 } from "../../../generated/prisma/v41375_14_07_03_1501_live";
+import type { VaultItem } from "../../account-vault";
 import { levelForXp, xpForLevel } from "../../character-level";
 import {
   type AccountRecord,
@@ -42,6 +43,27 @@ function decodeTalentNodes(bytes: Buffer | Uint8Array | null): number[] {
   return nodes;
 }
 
+// A stored row as the loadout (and the vault) carries it.
+function loadoutItemOf(row: character_item) {
+  return {
+    soid: soidFor(SOID_TYPE_ITEM, row.id),
+    defIndex: row.def_index,
+    bucket: row.bucket,
+    sandboxPattern: row.sandbox_pattern,
+    artArrangement: row.art_arrangement,
+    equipSlot: row.equip_slot,
+    instanced: row.instanced,
+    quantity: row.quantity,
+    power: row.power,
+    level: row.level,
+    quality: row.quality,
+    talentXp: row.talent_xp,
+    talentNodes: decodeTalentNodes(
+      row.talent_nodes ? Buffer.from(row.talent_nodes) : null
+    ),
+  };
+}
+
 function encodeTalentNodes(nodes: readonly number[]): Buffer {
   const bytes = Buffer.alloc(TALENT_NODE_COUNT);
   for (let i = 0; i < TALENT_NODE_COUNT; i++) {
@@ -62,7 +84,8 @@ export class PrismaCharacterStore implements CharacterStore {
   }
 
   // Items live in character_item. A character without rows gets the starter
-  // kit on first read. Stored rows are repaired (loadout-repair.ts): stale
+  // kit on first read. Rows in the vault (vault_bucket set) still count as
+  // owned for the repair and the grants, but are not in the bag. Stored rows are repaired (loadout-repair.ts): stale
   // stub items leave the equip slots, the class kit and starting currency
   // are added and equipped. Dev grants (item-grants.json) the character is
   // still missing come last.
@@ -119,24 +142,42 @@ export class PrismaCharacterStore implements CharacterStore {
     }
     rows = await this.applyGrants(characterId, classIndex, rows);
     return CharacterLoadout.fromItems(
-      rows.map((row) => ({
-        soid: soidFor(SOID_TYPE_ITEM, row.id),
-        defIndex: row.def_index,
-        bucket: row.bucket,
-        sandboxPattern: row.sandbox_pattern,
-        artArrangement: row.art_arrangement,
-        equipSlot: row.equip_slot,
-        instanced: row.instanced,
-        quantity: row.quantity,
-        power: row.power,
-        level: row.level,
-        quality: row.quality,
-        talentXp: row.talent_xp,
-        talentNodes: decodeTalentNodes(
-          row.talent_nodes ? Buffer.from(row.talent_nodes) : null
-        ),
-      }))
+      rows.filter((row) => row.vault_bucket === null).map(loadoutItemOf)
     );
+  }
+
+  async vaultItems(accountSoid: bigint): Promise<VaultItem[]> {
+    const rows = await this.prisma.character_item.findMany({
+      where: {
+        vault_bucket: { not: null },
+        character: { account_id: soidRowId(accountSoid) },
+      },
+      orderBy: { id: "asc" },
+    });
+    return rows.map((row) => ({
+      ...loadoutItemOf(row),
+      equipSlot: null,
+      stats: weaponStatsFor(row.def_index),
+      vaultBucket: row.vault_bucket ?? 0,
+    }));
+  }
+
+  async moveItemToVault(soid: bigint, vaultBucket: number): Promise<void> {
+    await this.prisma.character_item.update({
+      where: { id: soidRowId(soid) },
+      data: { vault_bucket: vaultBucket, equip_slot: null },
+    });
+  }
+
+  async moveItemFromVault(soid: bigint, characterSoid: bigint): Promise<void> {
+    await this.prisma.character_item.update({
+      where: { id: soidRowId(soid) },
+      data: {
+        vault_bucket: null,
+        equip_slot: null,
+        character_id: soidRowId(characterSoid),
+      },
+    });
   }
 
   // item-grants.json: insert the grants the character is missing (an equip

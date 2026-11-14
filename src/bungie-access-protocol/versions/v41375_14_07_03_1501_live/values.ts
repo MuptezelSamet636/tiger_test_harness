@@ -62,7 +62,9 @@ import {
   parseAccountProfile,
   parseCharacterProfile,
 } from "./messages";
+import { accountBuckets } from "../../../content/inventory";
 import { accountProfile } from "../../../investment/account-profiles";
+import { accountVault } from "../../../investment/account-vault";
 import type {
   InspectionCharacterValue,
   InspectionPrimaryValue,
@@ -139,7 +141,9 @@ export function selfPrimary(
       // last uploaded (701), absent before the first upload.
       unknown3: storedAccountProfile(accountSoid),
       unknown4: undefined,
-      unknown5: undefined,
+      // The account's bag: the vault, once a character is signed in (the
+      // vault items' objects come with the character's).
+      unknown5: characterSoid === null ? undefined : accountBag(accountSoid),
       unknown6: undefined,
       unknown7: { unknown0: directorAccountSlotValues() },
       unknown8: { unknown0: false, unknown1: { unknown0: offerSlots } },
@@ -282,6 +286,52 @@ function bagSlots(character: CharacterRecord) {
     };
   }
   return slots;
+}
+
+// TIGER_SEND_VAULT=0 in .env sends no account bag (the self primary as it
+// was before the vault).
+let sendVaultValue: boolean | undefined;
+function sendVault(): boolean {
+  if (sendVaultValue === undefined) {
+    loadWebTigerEnv();
+    sendVaultValue = process.env.TIGER_SEND_VAULT?.trim() !== "0";
+  }
+  return sendVaultValue;
+}
+
+// 80804591: the account bag has 128 slots, laid out like the character's
+// (80804764, 256) by the inventory def's other-scope rows: the vault buckets
+// 22, 23 and 24 at 20, 40 and 60, 20 slots each.
+const ACCOUNT_BAG_SLOTS = 128;
+
+function accountBag(accountSoid: bigint) {
+  if (!sendVault()) {
+    return;
+  }
+  const slots = Array.from({ length: ACCOUNT_BAG_SLOTS }, () =>
+    emptyBagEntry()
+  );
+  const ranges = new Map(accountBuckets().map((b) => [b.id, b]));
+  const used = new Map<number, number>();
+  for (const item of accountVault(accountSoid)) {
+    const range = ranges.get(item.vaultBucket);
+    const count = used.get(item.vaultBucket) ?? 0;
+    if (!range || count >= range.slotCount) {
+      continue;
+    }
+    const bagIndex = range.firstSlot + count;
+    if (bagIndex >= ACCOUNT_BAG_SLOTS) {
+      continue;
+    }
+    used.set(item.vaultBucket, count + 1);
+    slots[bagIndex] = {
+      unknown0: item.defIndex,
+      unknown1: item.instanced ? item.soid : 0n,
+      unknown2: item.quantity,
+      unknown3: 0,
+    };
+  }
+  return { unknown0: ACCOUNT_BAG_SLOTS, unknown1: { unknown0: slots } };
 }
 
 // The equipped soid per equip slot; the inventory UI marks an item equipped

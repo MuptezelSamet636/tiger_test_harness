@@ -74,7 +74,17 @@ export interface VendorPurchase {
   quantity: number;
 }
 
+export interface VendorBucketPair {
+  bucket: number;
+  // The bucket the vendor keeps items of `bucket` in, 255 for none.
+  target: number;
+}
+
 export interface Vendor {
+  // Pairs of inventory buckets (s_vendor +0x24), in builds that read them.
+  // The vault vendor maps each character bucket to the account bucket its
+  // items are kept in.
+  bucketMap?: readonly VendorBucketPair[];
   // Currency item definition, undefined for a vendor with no wares.
   currencyDef: number | undefined;
   nameHash: number;

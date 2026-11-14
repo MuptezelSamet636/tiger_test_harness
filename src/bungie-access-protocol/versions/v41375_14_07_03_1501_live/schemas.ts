@@ -258,6 +258,24 @@ export function defineSchemas(self: SelfSchemas) {
     unknown0: rsat.nested(Unknown80801796),
   });
 
+  // 808018CE, size 0x18 (read off the PS4 eboot's anchored descriptor)
+  // the transfer request (nid 405, name not cracked): the vault vendor's row,
+  // the bucket the item is in, the item soid, its def and the quantity
+  // (1 for an instanced item). Seen: 27, 2, 0x300000014, 2074, 1.
+  const VaultTransferRequest = rsat.schema(0x808018ce, {
+    vendorIndex: rsat.i8(),
+    bucket: rsat.i8(),
+    itemSoid: rsat.u64(),
+    defIndex: rsat.i16(),
+    quantity: rsat.i32(),
+  });
+
+  // 80801719, size 0x8 (PS4 eboot descriptor)
+  // the transfer response (nid 405): the status nest alone.
+  const VaultTransferResponse = rsat.schema(0x80801719, {
+    unknown0: rsat.nested(Unknown80801796),
+  });
+
   // 80801777 @0x8225f810, size 0x10, headerChecksum 0xda28df6c
   // vendor_buy_item request (nid 901)
   const VendorBuyItemRequest = rsat.schema(0x80801777, {
@@ -353,6 +371,8 @@ export function defineSchemas(self: SelfSchemas) {
     InventoryEquipItemResponse,
     InventoryUnequipItemRequest,
     InventoryUnequipItemResponse,
+    VaultTransferRequest,
+    VaultTransferResponse,
     VendorBuyItemRequest,
     VendorBuyItemResponse,
     VendorSellItemRequest,

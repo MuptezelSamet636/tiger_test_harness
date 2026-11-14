@@ -17,6 +17,7 @@ import {
 } from "../../world-server/profile";
 import { talentGridRequest } from "../../world-server/talent-grid";
 import { vendorBuyItem, vendorSellItem } from "../../world-server/vendor";
+import { VAULT_TRANSFER_NETWORK_ID, vaultTransfer } from "./vault";
 import { directorCompleteBinkActivity, fetchUniverse } from "./world-server";
 
 // The world-server requests the live client sends and the server handles,
@@ -48,6 +49,7 @@ export function liveRoutes(): ReadonlyMap<number, WorldServerRoute> {
       nid._server_message_network_id_inventory_unequip_item,
       { handler: inventoryRequest },
     ],
+    [VAULT_TRANSFER_NETWORK_ID, { handler: vaultTransfer }],
     [
       nid._server_message_network_id_vendor_buy_item,
       { handler: vendorBuyItem },

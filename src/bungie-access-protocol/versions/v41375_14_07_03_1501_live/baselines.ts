@@ -4,6 +4,7 @@ import {
   type QueuezObject,
 } from "@blamnetwork/rsat";
 import { readDebugToggles } from "../../../dev-config/debug-toggles";
+import { accountVault } from "../../../investment/account-vault";
 import type { CharacterRecord } from "../../../investment/character-store";
 import {
   type ItemPrimaryStat,
@@ -57,6 +58,12 @@ export function buildSelfBaselineBody(
     for (const item of character.loadout.items) {
       // Stacks (currency / materials) have no item object, only a bag
       // entry.
+      if (item.instanced) {
+        objects.push(selfItemObject(item));
+      }
+    }
+    // The vault's items, which the self primary's account bag names.
+    for (const item of accountVault(objectSoid)) {
       if (item.instanced) {
         objects.push(selfItemObject(item));
       }

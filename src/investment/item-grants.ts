@@ -39,6 +39,10 @@ export function planItemGrants(
   const used = new Map<number, number>();
   const slotRows = new Map<number, StoredItemRow>();
   for (const row of rows) {
+    // A vaulted item is still owned (above) but takes no bag room.
+    if ((row.vault_bucket ?? null) !== null) {
+      continue;
+    }
     used.set(row.bucket, (used.get(row.bucket) ?? 0) + 1);
     if (row.equip_slot !== null) {
       slotRows.set(row.equip_slot, row);

@@ -48,6 +48,19 @@ export function inventoryBuckets(): readonly InventoryBucket[] {
   return buckets ?? [];
 }
 
+let account: readonly InventoryBucket[] | undefined;
+
+// The account's bag (the other scope's rows): 41375 has 21 (0..19), 22, 23
+// and 24 (20 slots each from 20) and 28 (one slot at 80), in a 128-slot bag.
+export function accountBuckets(): readonly InventoryBucket[] {
+  if (!account) {
+    account = inventoryTable()
+      .rows.filter((row) => row.otherScope)
+      .map(({ id, firstSlot, slotCount }) => ({ id, firstSlot, slotCount }));
+  }
+  return account ?? [];
+}
+
 // The bucket each equip slot's items are in: the bucket rows in order, minus
 // the ones with no equip slot.
 export function equipSlotToBucket(): readonly number[] {

@@ -47,6 +47,8 @@ export interface StoredItemRow {
   id: number;
   instanced: boolean;
   sandbox_pattern: number;
+  // Set while the item is in the account's vault (prisma vault_bucket).
+  vault_bucket?: number | null;
 }
 
 export interface ItemRowUpdate {
@@ -134,7 +136,10 @@ export function planLoadoutRepair(
     }
     const row = rows.find(
       (r) =>
-        r.instanced && r.def_index === defIndex && slotOf.get(r.id) === null
+        r.instanced &&
+        r.def_index === defIndex &&
+        slotOf.get(r.id) === null &&
+        (r.vault_bucket ?? null) === null
     );
     if (row) {
       update(row.id, { equip_slot: slot });
