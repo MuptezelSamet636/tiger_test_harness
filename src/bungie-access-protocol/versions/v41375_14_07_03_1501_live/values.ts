@@ -153,12 +153,17 @@ export function selfPrimary(
 }
 
 // TIGER_ECHO_ACCOUNT_PROFILE sends the stored account profile back in the
-// self primary. Off by default: with the whole profile echoed (=1 or =full)
-// the client crashed right after login_character, though the body decodes
-// exactly (8637 of 8640 bits). =settings echoes only unknown1 (808017D6: the
-// f32 pairs and the option ints/bools) and leaves out unknown0 (8080172C: the
-// 128 optional u64 list plus 4 u32). The profile is stored either way.
-type EchoAccountProfileMode = "off" | "settings" | "full";
+// self primary. Read once at harness start: editing .env needs a harness
+// restart. Off by default. Modes, largest first:
+//   full (or 1)  the whole profile. The client crashed after login_character.
+//   settings     unknown1 only (808017D6), without unknown0 (8080172C, the 128
+//                optional u64 list plus 4 u32). Crashed in 2 of 3 game starts,
+//                2-4 s after login_character.
+//   options      808017D6.unknown1 only (808017F0: the option ints and bools),
+//                without 808017D6.unknown0 (80801705: two f32 pairs, stored
+//                (1,1)/(0,0) on 13 Nov, (0,0)/(0,0) after the crash run).
+// The profile is stored either way.
+type EchoAccountProfileMode = "off" | "options" | "settings" | "full";
 let echoAccountProfileValue: EchoAccountProfileMode | undefined;
 function echoAccountProfile(): EchoAccountProfileMode {
   if (echoAccountProfileValue === undefined) {
@@ -167,9 +172,13 @@ function echoAccountProfile(): EchoAccountProfileMode {
     echoAccountProfileValue =
       raw === "1" || raw === "full"
         ? "full"
-        : raw === "settings"
-          ? "settings"
+        : raw === "settings" || raw === "options"
+          ? raw
           : "off";
+    event_message(
+      "networking:bap: account profile echo %s",
+      echoAccountProfileValue
+    );
   }
   return echoAccountProfileValue;
 }
@@ -184,9 +193,16 @@ function storedAccountProfile(accountSoid: bigint) {
   if (!parsed) {
     return;
   }
-  return mode === "full"
-    ? parsed
-    : { unknown0: undefined, unknown1: parsed.unknown1 };
+  if (mode === "full") {
+    return parsed;
+  }
+  if (mode === "settings") {
+    return { unknown0: undefined, unknown1: parsed.unknown1 };
+  }
+  return {
+    unknown0: undefined,
+    unknown1: { unknown0: undefined, unknown1: parsed.unknown1?.unknown1 },
+  };
 }
 
 // The profile the client last uploaded (702), else a fresh one: full
