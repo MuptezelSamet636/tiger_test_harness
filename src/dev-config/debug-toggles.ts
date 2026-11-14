@@ -32,7 +32,7 @@ export interface DebugToggles {
   allowGrantedArmor?: boolean;
   // Fill every gridded item's 8 talent roll bytes (80801846 member 4,
   // 8080405E: per-node step selection read as byte / 255) with this value
-  // (0..255). Unset sends none. Under test for the armour sign-in crash.
+  // (0..255) instead of the default 128.
   itemRollByte?: number;
   // What every item's 80801711 {level, required level, quality} carries
   // instead of the row's own values: "zero" sends 0 / 0 / 0, "def" the def's

@@ -14,9 +14,9 @@ interface LoadoutRepairOptions {
   // saved equip that crashes the console cannot crash-loop sign-in.
   allowGrantedEquip?: boolean;
   // With allowGrantedEquip, keep non-kit ARMOUR equipped too
-  // (allowGrantedArmor). Off, only weapons stay: the PS4 client crashes
-  // signing in with granted armour equipped (purple helmet / gauntlets /
-  // legs / class item), while granted weapons sign in fine.
+  // (allowGrantedArmor). Off, only weapons stay. The PS4 client crashed
+  // signing in with granted armour equipped until items carried their
+  // talent roll bytes (live values.ts itemRollBytes).
   allowGrantedArmor?: boolean;
 }
 
