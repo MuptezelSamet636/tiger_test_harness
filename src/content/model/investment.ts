@@ -153,6 +153,13 @@ export interface TalentGridStep {
 
 export interface TalentGridNode {
   autoGranted: boolean;
+  // One step, the one the instance's roll in randomSlot picks, is the only
+  // one that can be active (builds that read it). Otherwise steps activate
+  // in order.
+  exclusive?: boolean;
+  // The grid random roll row that picks an exclusive node's step, -1 for
+  // none (builds that read it).
+  randomSlot?: number;
   // Shared by the nodes of one group, of which only one can be active;
   // k_empty_name_hash otherwise.
   binaryPairHash: number;
@@ -165,6 +172,9 @@ export interface TalentGridNode {
 export interface TalentGrid {
   index: number;
   nodes: readonly TalentGridNode[];
+  // Per random roll row, the largest value a new instance rolls for it, -1
+  // for a full byte (a 0..1 stat scale). Builds that read them.
+  randomRolls?: readonly number[];
   // The progression the grid's XP comes from, -1 for none.
   progression: number;
 }

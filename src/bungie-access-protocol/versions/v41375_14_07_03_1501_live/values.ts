@@ -32,6 +32,7 @@ import {
   activeTalentPerks,
   gridIndexForDef,
   itemPerks,
+  itemTalentRolls,
   hasTalentGrid,
   talentGridProgression,
 } from "../../../investment/talent-grid";
@@ -527,21 +528,25 @@ function talentGridInstance(item: LoadoutItem) {
           ),
         }
       : undefined,
-    // The talent roll bytes (8080405E): the client reads them as node step
-    // selections (byte / 255). Absent, signing in with granted armour
-    // equipped crashed the client; mid rolls fixed it.
-    unknown4: withGrid ? itemRollBytes() : undefined,
+    // The talent roll bytes (8080405E), one per grid random roll row: the
+    // step an exclusive node offers, or a stat's scale (byte / 255). Absent,
+    // signing in with granted armour equipped crashed the client.
+    unknown4: withGrid ? itemRollBytes(item) : undefined,
     unknown5: undefined,
   };
 }
 
-// Every roll at the middle of its range; debug-toggles.json itemRollByte
-// overrides the value.
-const DEFAULT_ROLL_BYTE = 128;
-
-function itemRollBytes() {
-  const byte = readDebugToggles().toggles.itemRollByte ?? DEFAULT_ROLL_BYTE;
-  return { unknown0: Array.from({ length: 8 }, () => byte) };
+// The item's own rolls (itemTalentRolls), which pick the perks of its
+// exclusive nodes; debug-toggles.json itemRollByte puts every roll at that
+// value instead (every item of a grid then rolls the same perks).
+function itemRollBytes(item: LoadoutItem) {
+  const byte = readDebugToggles().toggles.itemRollByte;
+  return {
+    unknown0:
+      byte === undefined
+        ? itemTalentRolls(item)
+        : Array.from({ length: 8 }, () => byte),
+  };
 }
 
 // Select-character primary: soid and the roster. unknown2 (27 x i16)

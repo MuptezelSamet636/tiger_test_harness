@@ -46,11 +46,16 @@ export function talentGridReaders(
         ? {
             index,
             progression: grid.progression,
+            randomRolls: grid.random_rolls.map(
+              (roll: { maximum: number }) => roll.maximum
+            ),
             nodes: grid.nodes.map((node: any, nodeIndex: number) => ({
               index: nodeIndex,
               nameHash: node.name_hash,
               binaryPairHash: node.binary_pair_hash,
               autoGranted: node.auto_granted !== 0,
+              exclusive: node.exclusive !== 0,
+              randomSlot: node.random_slot,
               prerequisiteNodes: node.prerequisites.map((p: any) => p.node),
               steps: node.steps.map((step: any) => ({
                 levelRequirement: step.level_requirement,

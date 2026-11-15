@@ -42,6 +42,52 @@ function talentGridDefinitionForDef(defIndex: number): TalentGrid | undefined {
   return gridIndex == null ? undefined : talentGrid(gridIndex);
 }
 
+// The talent roll bytes an instance carries (8080405E): one per grid random
+// roll row, 8 at most.
+export const TALENT_ROLL_SLOTS = 8;
+
+function mix32(value: number): number {
+  let x = value >>> 0;
+  x = Math.imul(x ^ (x >>> 16), 0x7f_eb_35_2d);
+  x = Math.imul(x ^ (x >>> 15), 0x84_6c_a6_8b);
+  return (x ^ (x >>> 16)) >>> 0;
+}
+
+// The rolls a new instance makes (one per grid random roll row): 0..maximum,
+// a full byte for a row whose maximum is -1, 0 for a slot the grid has no row
+// for. The real server rolled once and stored them; here they come from the
+// item's soid, so they are stable per item and differ between items.
+export function itemTalentRolls(item: {
+  defIndex: number;
+  soid?: bigint;
+}): number[] {
+  const rows = talentGridDefinitionForDef(item.defIndex)?.randomRolls ?? [];
+  const soid = item.soid ?? 0n;
+  const low = Number(soid & 0xff_ff_ff_ffn);
+  const high = Number((soid >> 32n) & 0xff_ff_ff_ffn);
+  return Array.from({ length: TALENT_ROLL_SLOTS }, (_, row) => {
+    const maximum = rows[row];
+    if (maximum === undefined) {
+      return 0;
+    }
+    const hash = mix32(low ^ mix32(high ^ mix32(row + 1)));
+    return maximum < 0 ? hash & 0xff : hash % (maximum + 1);
+  });
+}
+
+// The step an exclusive node with a random slot offers: the one its row
+// rolled. undefined for any other node (its steps activate in order).
+function rolledStep(
+  node: TalentGridNode,
+  rolls: readonly number[]
+): number | undefined {
+  if (!node.exclusive || node.randomSlot === undefined || node.randomSlot < 0) {
+    return;
+  }
+  const roll = rolls[node.randomSlot] ?? 0;
+  return Math.min(roll, Math.max(0, node.steps.length - 1));
+}
+
 // The nodes sharing this node's binary pair hash: a group of which only one
 // can be active. Empty for a node outside one.
 function binaryGroupOf(
@@ -223,7 +269,9 @@ export function planActivateStep(
     return { status: TALENT_STATUS_PREREQUISITE };
   }
   const current = item.talentNodes[nodeIndex] ?? 0;
-  if (current >= node.steps.length) {
+  // An exclusive node with a roll has one step to buy: the rolled one.
+  const rolled = rolledStep(node, itemTalentRolls(item));
+  if (current >= (rolled === undefined ? node.steps.length : 1)) {
     return { status: TALENT_STATUS_ALREADY_MAXED };
   }
   // A node whose group already has an active member must be reached through
@@ -239,7 +287,7 @@ export function planActivateStep(
   if (!prerequisitesMet(item, node)) {
     return { status: TALENT_STATUS_PREREQUISITE };
   }
-  const gate = stepGate(item, grid, node, current);
+  const gate = stepGate(item, grid, node, rolled ?? current);
   if (gate !== TALENT_STATUS_OK) {
     return { status: gate };
   }
@@ -279,7 +327,12 @@ export function planBinarySwap(
   if (!prerequisitesMet(item, node)) {
     return { status: TALENT_STATUS_PREREQUISITE };
   }
-  const gate = stepGate(item, grid, node, 0);
+  const gate = stepGate(
+    item,
+    grid,
+    node,
+    rolledStep(node, itemTalentRolls(item)) ?? 0
+  );
   if (gate !== TALENT_STATUS_OK) {
     return { status: gate };
   }
@@ -330,26 +383,42 @@ export function isTalentNodeActive(
 }
 
 // The steps active on each active node: the first talentNodes[node] of them,
-// at least one for an active auto-granted node.
+// at least one for an active auto-granted node; for an exclusive node with a
+// roll, the rolled step alone.
 function activeSteps(item: {
   defIndex: number;
+  soid?: bigint;
   talentNodes: readonly number[];
 }): { node: TalentGridNode; steps: TalentGridNode["steps"] }[] {
   const grid = talentGridDefinitionForDef(item.defIndex);
   if (!grid) {
     return [];
   }
+  const rolls = itemTalentRolls(item);
   return grid.nodes
     .filter((node) => isTalentNodeActive(grid, item, node))
-    .map((node) => ({
-      node,
-      steps: node.steps.slice(0, Math.max(1, item.talentNodes[node.index] ?? 0)),
-    }));
+    .map((node) => {
+      const rolled = rolledStep(node, rolls);
+      const step = rolled === undefined ? undefined : node.steps[rolled];
+      return {
+        node,
+        steps:
+          rolled === undefined
+            ? node.steps.slice(
+                0,
+                Math.max(1, item.talentNodes[node.index] ?? 0)
+              )
+            : step
+              ? [step]
+              : [],
+      };
+    });
 }
 
 // The perks an item's grid grants as it stands.
 export function activeTalentPerks(item: {
   defIndex: number;
+  soid?: bigint;
   talentNodes: readonly number[];
 }): number[] {
   return activeSteps(item).flatMap(({ steps }) =>
@@ -358,19 +427,24 @@ export function activeTalentPerks(item: {
 }
 
 // The investment stats an item's active steps add, by stat key: value x
-// scale, the scale the minimum one, or the middle of the range for a step
-// lerped by a random roll (the instance's roll isn't tracked).
+// scale, the scale the minimum one, or lerped to the maximum by the item's
+// roll in the stat's random slot / 255.
 export function activeTalentStats(item: {
   defIndex: number;
+  soid?: bigint;
   talentNodes: readonly number[];
 }): Map<number, number> {
   const stats = new Map<number, number>();
+  const rolls = itemTalentRolls(item);
   for (const { steps } of activeSteps(item)) {
     for (const step of steps) {
       for (const stat of step.stats ?? []) {
         const scale =
           stat.randomSlot >= 0
-            ? (stat.minimumScale + stat.maximumScale) / 2
+            ? stat.minimumScale +
+              ((stat.maximumScale - stat.minimumScale) *
+                (rolls[stat.randomSlot] ?? 0)) /
+                255
             : stat.minimumScale;
         stats.set(
           stat.key,
@@ -385,6 +459,7 @@ export function activeTalentStats(item: {
 // The nodes active on an item, by index (isTalentNodeActive).
 export function activeTalentNodes(item: {
   defIndex: number;
+  soid?: bigint;
   talentNodes: readonly number[];
 }): Set<number> {
   return new Set(activeSteps(item).map(({ node }) => node.index));
@@ -394,6 +469,7 @@ export function activeTalentNodes(item: {
 // ability} for every link with a name hash (a grant's is empty).
 export function activeAbilityModifiers(item: {
   defIndex: number;
+  soid?: bigint;
   talentNodes: readonly number[];
 }): { hash: number; target: number }[] {
   const found: { hash: number; target: number }[] = [];
@@ -413,6 +489,7 @@ export function activeAbilityModifiers(item: {
 // its active talent perks, deduplicated.
 export function itemPerks(item: {
   defIndex: number;
+  soid?: bigint;
   talentNodes: readonly number[];
 }): number[] {
   return [
@@ -425,6 +502,7 @@ export function itemPerks(item: {
 // hash/target/node/ability (hex hash), for the log.
 export function describeActiveTalentNodes(item: {
   defIndex: number;
+  soid?: bigint;
   talentNodes: readonly number[];
 }): string {
   return activeSteps(item)
@@ -450,6 +528,7 @@ const LINK_NONE = 0xff;
 // Only applies while the pointed-at node is active.
 export function activeAbilityOverrides(item: {
   defIndex: number;
+  soid?: bigint;
   talentNodes: readonly number[];
 }): { ability: number; slot: number }[] {
   const grid = talentGridDefinitionForDef(item.defIndex);

@@ -28,11 +28,19 @@ export const inventoryRequest: WorldServerHandler = async (
     character &&
     networkId === nid._server_message_network_id_inventory_perform_item_action
   ) {
-    const plan = planDismantle(character.loadout, soid);
+    const plan = planDismantle(
+      character.loadout,
+      soid,
+      character.appearance.classIndex
+    );
     if (plan) {
       await applyDismantle(ctx.store, character, plan);
       destroyed = true;
-      dismantled = ` dismantled def=${plan.target.defIndex} +${plan.glimmer} glimmer`;
+      dismantled =
+        ` dismantled def=${plan.target.defIndex} +${plan.glimmer} glimmer` +
+        plan.materials
+          .map((m) => ` +${m.quantity} def ${m.defIndex}`)
+          .join("");
     } else {
       dismantled = " not dismantled (equipped, stack or unknown)";
     }
