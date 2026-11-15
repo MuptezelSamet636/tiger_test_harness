@@ -49,6 +49,7 @@ export function talentGridReaders(
             randomRolls: grid.random_rolls.map(
               (roll: { maximum: number }) => roll.maximum
             ),
+            instanceRollLimit: grid.unknown1a,
             nodes: grid.nodes.map((node: any, nodeIndex: number) => ({
               index: nodeIndex,
               nameHash: node.name_hash,

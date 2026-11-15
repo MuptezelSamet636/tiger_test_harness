@@ -32,6 +32,7 @@ import {
   activeTalentPerks,
   gridIndexForDef,
   itemPerks,
+  itemTalentByte,
   itemTalentRollBytes,
   hasTalentGrid,
   talentGridProgression,
@@ -565,8 +566,18 @@ function talentGridInstance(item: LoadoutItem) {
     // step an exclusive node offers, or a stat's scale (byte / 255). Absent,
     // signing in with granted armour equipped crashed the client.
     unknown4: withGrid ? itemRollBytes(item) : undefined,
-    unknown5: undefined,
+    // +0x4E, rolled below the grid's instanceRollLimit (talent-grid.ts);
+    // debug-toggles itemTalentByte overrides it (-1: none).
+    unknown5: withGrid ? instanceTalentByte(item) : undefined,
   };
+}
+
+function instanceTalentByte(item: LoadoutItem): number | undefined {
+  const forced = readDebugToggles().toggles.itemTalentByte;
+  if (forced !== undefined) {
+    return forced < 0 ? undefined : forced;
+  }
+  return itemTalentByte(item);
 }
 
 // The item's own rolls (itemTalentRollBytes), which pick the perks of its

@@ -32,8 +32,11 @@ export interface DebugToggles {
   allowGrantedArmor?: boolean;
   // Fill every gridded item's 8 talent roll bytes (80801846 member 4,
   // 8080405E: per-node step selection read as byte / 255) with this value
-  // (0..255) instead of the default 128.
+  // (0..255) instead of the item's own rolls.
   itemRollByte?: number;
+  // Every gridded item's talent instance byte (80801846 member 5, +0x4E)
+  // instead of its own roll: 0..255, or -1 to send none (as before).
+  itemTalentByte?: number;
   // What every item's 80801711 {level, required level, quality} carries
   // instead of the row's own values: "zero" sends 0 / 0 / 0, "def" the def's
   // level block. Isolates the item object from an equip crash.
@@ -153,6 +156,13 @@ export function parseDebugToggles(raw: unknown): DebugTogglesRead {
           toggles.grantLevelQuality = value;
         } else {
           problems.push(`${key}: expected "def" or "zero"`);
+        }
+        break;
+      case "itemTalentByte":
+        if (Number.isInteger(value) && (value as number) >= -1 && (value as number) <= 255) {
+          toggles.itemTalentByte = value as number;
+        } else {
+          problems.push(`${key}: expected a whole number -1..255`);
         }
         break;
       case "itemRollByte":

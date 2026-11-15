@@ -75,6 +75,25 @@ export function itemTalentRolls(item: {
   });
 }
 
+// The byte a new instance rolls below its grid's instanceRollLimit (talent
+// instance +0x4E), from the item's soid like its rolls; undefined for a grid
+// whose limit is 0 or 1. What the client does with it is not known yet: the
+// fusion rifles' element node (exclusive, no roll row, 3 steps) is the
+// suspect.
+export function itemTalentByte(item: {
+  defIndex: number;
+  soid?: bigint;
+}): number | undefined {
+  const limit = talentGridDefinitionForDef(item.defIndex)?.instanceRollLimit ?? 0;
+  if (limit <= 1) {
+    return;
+  }
+  const soid = item.soid ?? 0n;
+  const low = Number(soid & 0xff_ff_ff_ffn);
+  const high = Number((soid >> 32n) & 0xff_ff_ff_ffn);
+  return mix32(low ^ mix32(high ^ 0x4e_4e_4e_4e)) % limit;
+}
+
 // A roll as the wire byte. The client reads the bytes as fractions (byte /
 // 255, d1preservation items-and-gear: "consumed as byte/255.0 interpolants"),
 // so a node row's value k of 0..maximum goes out in the middle of the bytes
