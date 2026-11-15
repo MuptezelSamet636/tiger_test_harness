@@ -324,15 +324,18 @@ function inAccountBag(defIndex: number): boolean {
 }
 
 function accountBag(accountSoid: bigint, character: CharacterRecord | null) {
-  if (!sendVault()) {
+  const contents = readDebugToggles().toggles.accountBag ?? "all";
+  if (!sendVault() || contents === "none") {
     return;
   }
+  const withVault = contents === "all" || contents === "vault";
+  const withGlimmer = contents === "all" || contents === "glimmer";
   const slots = Array.from({ length: ACCOUNT_BAG_SLOTS }, () =>
     emptyBagEntry()
   );
   const ranges = new Map(accountBuckets().map((b) => [b.id, b]));
   const used = new Map<number, number>();
-  for (const item of accountVault(accountSoid)) {
+  for (const item of withVault ? accountVault(accountSoid) : []) {
     const range = ranges.get(item.vaultBucket);
     const count = used.get(item.vaultBucket) ?? 0;
     if (!range || count >= range.slotCount) {
@@ -351,7 +354,7 @@ function accountBag(accountSoid: bigint, character: CharacterRecord | null) {
     };
   }
   // The signed-in character's account-bucket stacks (glimmer).
-  for (const item of character?.loadout.items ?? []) {
+  for (const item of withGlimmer ? (character?.loadout.items ?? []) : []) {
     const bucket = itemDef(item.defIndex)?.bucket ?? -1;
     const range = ranges.get(bucket);
     const count = used.get(bucket) ?? 0;

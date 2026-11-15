@@ -34,6 +34,9 @@ export interface DebugToggles {
   // 8080405E: per-node step selection read as byte / 255) with this value
   // (0..255) instead of the item's own rolls.
   itemRollByte?: number;
+  // What the self primary's account bag carries: "all" (default), "glimmer"
+  // (no vault slots), "vault" (no glimmer) or "none". Isolates a crash.
+  accountBag?: "all" | "glimmer" | "none" | "vault";
   // Every gridded item's talent instance byte (80801846 member 5, +0x4E)
   // instead of its own roll: 0..255, or -1 to send none (as before).
   itemTalentByte?: number;
@@ -156,6 +159,18 @@ export function parseDebugToggles(raw: unknown): DebugTogglesRead {
           toggles.grantLevelQuality = value;
         } else {
           problems.push(`${key}: expected "def" or "zero"`);
+        }
+        break;
+      case "accountBag":
+        if (
+          value === "all" ||
+          value === "glimmer" ||
+          value === "none" ||
+          value === "vault"
+        ) {
+          toggles.accountBag = value;
+        } else {
+          problems.push(`${key}: expected "all", "glimmer", "vault" or "none"`);
         }
         break;
       case "itemTalentByte":
