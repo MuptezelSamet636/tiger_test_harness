@@ -269,6 +269,9 @@ function emptyBagEntry() {
   return { unknown0: -1, unknown1: 0n, unknown2: 0, unknown3: 0 };
 }
 
+// Rows are counted per bag range, not per bucket: the currency alias
+// (bucket 0) shares the materials bucket's range (5, slots 0..14), so
+// counting them apart put the first material on top of the glimmer.
 function bagSlots(character: CharacterRecord) {
   const slots = Array.from({ length: 256 }, () => emptyBagEntry());
   const used = new Map<number, number>();
@@ -277,8 +280,8 @@ function bagSlots(character: CharacterRecord) {
     if (start < 0) {
       continue;
     }
-    const bagIndex = start + (used.get(item.bucket) ?? 0);
-    used.set(item.bucket, bagIndex - start + 1);
+    const bagIndex = start + (used.get(start) ?? 0);
+    used.set(start, bagIndex - start + 1);
     slots[bagIndex] = {
       unknown0: item.defIndex,
       unknown1: item.instanced ? item.soid : 0n,
