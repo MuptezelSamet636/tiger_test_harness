@@ -601,10 +601,74 @@ function emptyEquipSlot() {
   };
 }
 
+// TIGER_SEND_DYES=0 in .env sends every slot's dyes as none again.
+let sendDyesValue: boolean | undefined;
+function sendDyes(): boolean {
+  if (sendDyesValue === undefined) {
+    loadWebTigerEnv();
+    sendDyesValue = process.env.TIGER_SEND_DYES?.trim() !== "0";
+  }
+  return sendDyesValue;
+}
+
+const DYE_ENTRIES = 6;
+
+// An equipped item's dyes (808046BC: 6 x {channel, dye}, -1 for none), from
+// its def (ItemDyes): its own colours, then an equipped shader's on the
+// armour channels, then the colours it keeps. At most 4 per def in 41375.
+// The order (shader over default, locked over both) is a reading of the
+// three lists' names, not confirmed.
+function slotDyes(
+  item: LoadoutItem,
+  shader: readonly { channel: number; dye: number }[]
+) {
+  const dyes = itemDef(item.defIndex)?.dyes;
+  if (!(dyes && sendDyes())) {
+    return EMPTY_DYES;
+  }
+  const byChannel = new Map<number, number>();
+  for (const { channel, dye } of dyes.default) {
+    byChannel.set(channel, dye);
+  }
+  for (const { channel, dye } of shader) {
+    if (byChannel.has(channel)) {
+      byChannel.set(channel, dye);
+    }
+  }
+  for (const { channel, dye } of dyes.locked) {
+    byChannel.set(channel, dye);
+  }
+  const entries = [...byChannel]
+    .sort((a, b) => a[0] - b[0])
+    .slice(0, DYE_ENTRIES)
+    .map(([channel, dye]) => ({ unknown0: channel, unknown1: dye }));
+  while (entries.length < DYE_ENTRIES) {
+    entries.push(EMPTY_DYE);
+  }
+  return { unknown0: entries };
+}
+
+// The armour equip slots a shader colours.
+function shadedSlots(): ReadonlySet<number> {
+  const ids = equipSlotIds();
+  return new Set([
+    ids.helmet,
+    ids.gauntlets,
+    ids.chest,
+    ids.legs,
+    ids.classItem,
+  ]);
+}
+
 // Per equip slot: soid, def, sandbox pattern (the byte the guest builds the
 // weapon / ship sobject from), art arrangement, dyes.
 function equipSlots(character: CharacterRecord) {
   const slots = Array.from({ length: 20 }, () => emptyEquipSlot());
+  const shaderItem = character.loadout.equipped(equipSlotIds().shader);
+  const shader = shaderItem
+    ? (itemDef(shaderItem.defIndex)?.dyes?.custom ?? [])
+    : [];
+  const shaded = shadedSlots();
   for (let slot = 0; slot < slots.length; slot++) {
     const item = character.loadout.equipped(slot);
     if (item) {
@@ -613,7 +677,7 @@ function equipSlots(character: CharacterRecord) {
         unknown1: item.defIndex,
         unknown2: item.sandboxPattern,
         unknown3: item.artArrangement,
-        unknown4: EMPTY_DYES,
+        unknown4: slotDyes(item, shaded.has(slot) ? shader : []),
       };
     }
   }

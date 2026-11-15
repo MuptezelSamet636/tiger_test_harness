@@ -10,6 +10,24 @@ interface ItemScaling {
 
 // An item definition. Item rows are in item table order, the item definition
 // index the wire uses.
+// A dye on one dye channel of the item's art: {channel, dye index}, the
+// shape of the gear block's dye entries (80801704 {i8, i16}).
+export interface ItemDye {
+  channel: number;
+  dye: number;
+}
+
+// The equipable block's three {u8, u16} lists (+0x08, +0x10, +0x20). Weapons
+// dye channels 5/6, armour 0/1/2, ships 9/10, sparrows 13, ghosts 14.
+export interface ItemDyes {
+  // +0x20: what a shader applies (channels 0..2); empty on other items.
+  custom: readonly ItemDye[];
+  // +0x08: the item's own colours (most gear).
+  default: readonly ItemDye[];
+  // +0x10: colours the item keeps (raid and vendor armour, many others).
+  locked: readonly ItemDye[];
+}
+
 export interface ItemDef {
   // -1 = none (the def's 0xFFFF).
   artArrangement: number;
@@ -17,6 +35,8 @@ export interface ItemDef {
   // Wire class index the equip unlock names (0 titan, 1 hunter, 2 warlock),
   // -1 when any class may equip it.
   classIndex: number;
+  // Equipable items, in builds that read them.
+  dyes?: ItemDyes;
   // null = not equipable.
   equipSlot: number | null;
   // The talent grid table row the item's tree comes from, null without one.

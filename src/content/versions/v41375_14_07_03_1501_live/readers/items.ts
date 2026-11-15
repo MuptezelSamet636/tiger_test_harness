@@ -28,6 +28,11 @@ function classFlagOf(equipable: any): number | null {
   return tokens[0].operand;
 }
 
+type DyeList = { key: number; value: number }[];
+
+const dyesOf = (list: DyeList | undefined) =>
+  (list ?? []).map((pair) => ({ channel: pair.key, dye: pair.value }));
+
 function itemRecordOf(def: any): ItemRecord {
   const { equipable, level } = def;
   const stats: any[] = def.stats?.stats ?? [];
@@ -38,6 +43,13 @@ function itemRecordOf(def: any): ItemRecord {
     artArrangement: equipable ? signed16(equipable.art_arrangement) : -1,
     instanced: def.instanced !== 0,
     classFlag: classFlagOf(equipable),
+    dyes: equipable
+      ? {
+          default: dyesOf(equipable.unknown08),
+          locked: dyesOf(equipable.unknown10),
+          custom: dyesOf(equipable.unknown20),
+        }
+      : undefined,
     tier: signed8(def.tier),
     level: level ? level.level : 0,
     quality: level ? level.unknown08 : 0,

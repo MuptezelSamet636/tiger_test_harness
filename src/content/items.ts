@@ -34,6 +34,7 @@ function itemDefOf(record: ItemRecord): ItemDef {
     artArrangement: record.artArrangement,
     instanced: record.instanced,
     classIndex: classFor(record.classFlag),
+    dyes: record.dyes,
     tier: record.tier,
     level: record.level,
     quality: record.quality,
