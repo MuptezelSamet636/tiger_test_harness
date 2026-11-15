@@ -48,7 +48,12 @@ export function buildSelfBaselineBody(
       soid: objectSoid,
       payload: encode(
         liveBap().queuez.self.SelfPrimary,
-        selfPrimary(objectSoid, character?.soid ?? null, rosterSoids)
+        selfPrimary(
+          objectSoid,
+          character?.soid ?? null,
+          rosterSoids,
+          character
+        )
       ),
     },
   ];
@@ -126,9 +131,22 @@ function buildSelfUpdateBody(
   version: number,
   character: CharacterRecord,
   changedItemSoids: readonly bigint[],
-  removedItemSoids: readonly bigint[] = []
+  removedItemSoids: readonly bigint[] = [],
+  rosterSoids?: readonly bigint[]
 ): Buffer {
   const objects: QueuezObject[] = [selfCharacterObject(character)];
+  // The account primary too, when the caller knows the roster: glimmer is
+  // counted from its account bag, so a purchase or a dismantle changes it.
+  if (rosterSoids) {
+    objects.unshift({
+      headerChecksum: liveBap().queuez.self.SELF_CHECKSUM_PRIMARY,
+      soid: rootSoid,
+      payload: encode(
+        liveBap().queuez.self.SelfPrimary,
+        selfPrimary(rootSoid, character.soid, rosterSoids, character)
+      ),
+    });
+  }
   for (const item of character.loadout.items) {
     if (item.instanced && changedItemSoids.includes(item.soid)) {
       objects.push(selfItemObject(item));

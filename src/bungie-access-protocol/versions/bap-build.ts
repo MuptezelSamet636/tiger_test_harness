@@ -158,12 +158,15 @@ export interface BapBaselines {
   ): Buffer;
   // A delta: the character object plus the items whose state moved, and a
   // size-0 header for each removed item.
+  // With rosterSoids, a build that keeps account state in the self primary
+  // (41375: glimmer, the vault) sends the primary along.
   buildSelfUpdateBody(
     rootSoid: bigint,
     version: number,
     character: CharacterRecord,
     changedItemSoids: readonly bigint[],
-    removedItemSoids?: readonly bigint[]
+    removedItemSoids?: readonly bigint[],
+    rosterSoids?: readonly bigint[]
   ): Buffer;
   buildUniverseBaselineBody(
     rootSoid?: bigint,

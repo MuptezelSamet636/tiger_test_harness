@@ -97,7 +97,9 @@ export class FamilyPusher {
         accountSoid,
         this.nextFamilyVersion(e_queuez_family_type._queuez_family_type_self),
         character,
-        changedItemSoids
+        changedItemSoids,
+        [],
+        this.source.rosterSoids()
       ),
       `self delta after ${label}`
     );
@@ -130,7 +132,8 @@ export class FamilyPusher {
         this.nextFamilyVersion(e_queuez_family_type._queuez_family_type_self),
         character,
         changedItemSoids,
-        removedItemSoids
+        removedItemSoids,
+        this.source.rosterSoids()
       ),
       `self delta after ${label}`
     );

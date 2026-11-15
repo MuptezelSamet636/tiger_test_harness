@@ -126,7 +126,8 @@ const SELF_ROSTER_MAX = 10;
 export function selfPrimary(
   accountSoid: bigint,
   characterSoid: bigint | null,
-  rosterSoids: readonly bigint[] = characterSoid === null ? [] : [characterSoid]
+  rosterSoids: readonly bigint[] = characterSoid === null ? [] : [characterSoid],
+  character: CharacterRecord | null = null
 ): SelfPrimaryValue {
   const roster = rosterSoids.slice(0, SELF_ROSTER_MAX);
   // Member 7 is the account unlock flags and member 8 the account offers
@@ -144,7 +145,8 @@ export function selfPrimary(
       unknown4: undefined,
       // The account's bag: the vault, once a character is signed in (the
       // vault items' objects come with the character's).
-      unknown5: characterSoid === null ? undefined : accountBag(accountSoid),
+      unknown5:
+        characterSoid === null ? undefined : accountBag(accountSoid, character),
       unknown6: undefined,
       unknown7: { unknown0: directorAccountSlotValues() },
       unknown8: { unknown0: false, unknown1: { unknown0: offerSlots } },
@@ -277,7 +279,8 @@ function bagSlots(character: CharacterRecord) {
   const used = new Map<number, number>();
   for (const item of character.loadout.items) {
     const start = bagIndexForBucket(item.bucket);
-    if (start < 0) {
+    // Glimmer goes in the account bag (accountBag) while that is sent.
+    if (start < 0 || (sendVault() && inAccountBag(item.defIndex))) {
       continue;
     }
     const bagIndex = start + (used.get(start) ?? 0);
@@ -308,7 +311,18 @@ function sendVault(): boolean {
 // 22, 23 and 24 at 20, 40 and 60, 20 slots each.
 const ACCOUNT_BAG_SLOTS = 128;
 
-function accountBag(accountSoid: bigint) {
+// Whether a def's own bucket is in the account's bag: glimmer (899, bucket
+// 28, one slot at 80), which the client counts from there ("shared between
+// all your characters"). Such a stack is stored with the character and sent
+// in the account bag, not the character's.
+function inAccountBag(defIndex: number): boolean {
+  const bucket = itemDef(defIndex)?.bucket;
+  return (
+    bucket !== undefined && accountBuckets().some((b) => b.id === bucket)
+  );
+}
+
+function accountBag(accountSoid: bigint, character: CharacterRecord | null) {
   if (!sendVault()) {
     return;
   }
@@ -331,6 +345,22 @@ function accountBag(accountSoid: bigint) {
     slots[bagIndex] = {
       unknown0: item.defIndex,
       unknown1: item.instanced ? item.soid : 0n,
+      unknown2: item.quantity,
+      unknown3: 0,
+    };
+  }
+  // The signed-in character's account-bucket stacks (glimmer).
+  for (const item of character?.loadout.items ?? []) {
+    const bucket = itemDef(item.defIndex)?.bucket ?? -1;
+    const range = ranges.get(bucket);
+    const count = used.get(bucket) ?? 0;
+    if (!range || count >= range.slotCount || item.instanced) {
+      continue;
+    }
+    used.set(bucket, count + 1);
+    slots[range.firstSlot + count] = {
+      unknown0: item.defIndex,
+      unknown1: 0n,
       unknown2: item.quantity,
       unknown3: 0,
     };
