@@ -37,6 +37,9 @@ export interface DebugToggles {
   // What the self primary's account bag carries: "all" (default), "glimmer"
   // (no vault slots), "vault" (no glimmer) or "none". Isolates a crash.
   accountBag?: "all" | "glimmer" | "none" | "vault";
+  // Only these vault items (character_item row ids, the item soid's low
+  // word) go in the account bag. Isolates a crash to one item.
+  vaultInclude?: readonly number[];
   // Every gridded item's talent instance byte (80801846 member 5, +0x4E)
   // instead of its own roll: 0..255, or -1 to send none (as before).
   itemTalentByte?: number;
@@ -171,6 +174,16 @@ export function parseDebugToggles(raw: unknown): DebugTogglesRead {
           toggles.accountBag = value;
         } else {
           problems.push(`${key}: expected "all", "glimmer", "vault" or "none"`);
+        }
+        break;
+      case "vaultInclude":
+        if (
+          Array.isArray(value) &&
+          value.every((id) => Number.isInteger(id) && id >= 0)
+        ) {
+          toggles.vaultInclude = value as number[];
+        } else {
+          problems.push(`${key}: expected a list of item row ids`);
         }
         break;
       case "itemTalentByte":

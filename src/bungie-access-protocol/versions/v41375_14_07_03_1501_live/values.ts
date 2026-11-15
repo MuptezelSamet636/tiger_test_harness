@@ -324,7 +324,8 @@ function inAccountBag(defIndex: number): boolean {
 }
 
 function accountBag(accountSoid: bigint, character: CharacterRecord | null) {
-  const contents = readDebugToggles().toggles.accountBag ?? "all";
+  const { accountBag: bagContents, vaultInclude } = readDebugToggles().toggles;
+  const contents = bagContents ?? "all";
   if (!sendVault() || contents === "none") {
     return;
   }
@@ -335,7 +336,12 @@ function accountBag(accountSoid: bigint, character: CharacterRecord | null) {
   );
   const ranges = new Map(accountBuckets().map((b) => [b.id, b]));
   const used = new Map<number, number>();
-  for (const item of withVault ? accountVault(accountSoid) : []) {
+  const vault = accountVault(accountSoid).filter(
+    (item) =>
+      !vaultInclude ||
+      vaultInclude.includes(Number(item.soid & 0xff_ff_ff_ffn))
+  );
+  for (const item of withVault ? vault : []) {
     const range = ranges.get(item.vaultBucket);
     const count = used.get(item.vaultBucket) ?? 0;
     if (!range || count >= range.slotCount) {
