@@ -136,6 +136,25 @@ function rolledStep(
   return Math.min(roll, Math.max(0, node.steps.length - 1));
 }
 
+// The node state bytes as the client reads them (808043C6). A bought
+// exclusive node's byte names its active step + 1 (the client shows
+// steps[byte - 1]; unbought, the step its roll picks), so a bought rolled
+// node goes out as its rolled step + 1 whatever was stored: rows bought
+// before this stored 1, which showed every copy's first step.
+export function wireTalentNodeStates(item: {
+  defIndex: number;
+  soid?: bigint;
+  talentNodes: readonly number[];
+}): number[] {
+  const grid = talentGridDefinitionForDef(item.defIndex);
+  const rolls = itemTalentRolls(item);
+  return item.talentNodes.map((value, index) => {
+    const node = value > 0 ? grid?.nodes[index] : undefined;
+    const rolled = node ? rolledStep(node, rolls) : undefined;
+    return rolled === undefined ? value : rolled + 1;
+  });
+}
+
 // The nodes sharing this node's binary pair hash: a group of which only one
 // can be active. Empty for a node outside one.
 function binaryGroupOf(
@@ -342,7 +361,10 @@ export function planActivateStep(
   return {
     itemSoid,
     status: TALENT_STATUS_OK,
-    mutations: [{ node: nodeIndex, value: current + 1 }],
+    // A rolled exclusive node stores its step + 1 (wireTalentNodeStates).
+    mutations: [
+      { node: nodeIndex, value: rolled === undefined ? current + 1 : rolled + 1 },
+    ],
   };
 }
 
@@ -375,12 +397,8 @@ export function planBinarySwap(
   if (!prerequisitesMet(item, node)) {
     return { status: TALENT_STATUS_PREREQUISITE };
   }
-  const gate = stepGate(
-    item,
-    grid,
-    node,
-    rolledStep(node, itemTalentRolls(item)) ?? 0
-  );
+  const rolled = rolledStep(node, itemTalentRolls(item));
+  const gate = stepGate(item, grid, node, rolled ?? 0);
   if (gate !== TALENT_STATUS_OK) {
     return { status: gate };
   }
@@ -388,7 +406,7 @@ export function planBinarySwap(
     itemSoid,
     status: TALENT_STATUS_OK,
     mutations: [
-      { node: nodeIndex, value: 1 },
+      { node: nodeIndex, value: rolled === undefined ? 1 : rolled + 1 },
       ...group
         .filter((other) => (item.talentNodes[other.index] ?? 0) > 0)
         .map((other) => ({ node: other.index, value: 0 })),

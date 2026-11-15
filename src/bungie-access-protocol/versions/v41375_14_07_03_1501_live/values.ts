@@ -33,6 +33,7 @@ import {
   gridIndexForDef,
   itemPerks,
   itemTalentByte,
+  wireTalentNodeStates,
   itemTalentRollBytes,
   hasTalentGrid,
   talentGridProgression,
@@ -564,12 +565,15 @@ function talentGridInstance(item: LoadoutItem) {
     unknown1: undefined,
     unknown2: withGrid ? gridIndexForDef(item.defIndex) : NO_INDEX,
     unknown3: withGrid
-      ? {
-          unknown0: Array.from(
-            { length: LIVE_TALENT_NODE_BYTES },
-            (_, i) => item.talentNodes[i] ?? 0
-          ),
-        }
+      ? (() => {
+          const states = wireTalentNodeStates(item);
+          return {
+            unknown0: Array.from(
+              { length: LIVE_TALENT_NODE_BYTES },
+              (_, i) => states[i] ?? 0
+            ),
+          };
+        })()
       : undefined,
     // The talent roll bytes (8080405E), one per grid random roll row: the
     // step an exclusive node offers, or a stat's scale (byte / 255). Absent,
