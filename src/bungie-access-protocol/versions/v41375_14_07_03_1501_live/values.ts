@@ -32,7 +32,7 @@ import {
   activeTalentPerks,
   gridIndexForDef,
   itemPerks,
-  itemTalentRolls,
+  itemTalentRollBytes,
   hasTalentGrid,
   talentGridProgression,
 } from "../../../investment/talent-grid";
@@ -569,7 +569,7 @@ function talentGridInstance(item: LoadoutItem) {
   };
 }
 
-// The item's own rolls (itemTalentRolls), which pick the perks of its
+// The item's own rolls (itemTalentRollBytes), which pick the perks of its
 // exclusive nodes; debug-toggles.json itemRollByte puts every roll at that
 // value instead (every item of a grid then rolls the same perks).
 function itemRollBytes(item: LoadoutItem) {
@@ -577,7 +577,7 @@ function itemRollBytes(item: LoadoutItem) {
   return {
     unknown0:
       byte === undefined
-        ? itemTalentRolls(item)
+        ? itemTalentRollBytes(item)
         : Array.from({ length: 8 }, () => byte),
   };
 }

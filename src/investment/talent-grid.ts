@@ -75,6 +75,35 @@ export function itemTalentRolls(item: {
   });
 }
 
+// A roll as the wire byte. The client reads the bytes as fractions (byte /
+// 255, d1preservation items-and-gear: "consumed as byte/255.0 interpolants"),
+// so a node row's value k of 0..maximum goes out in the middle of the bytes
+// that read as step k both when the client floors fraction x steps and when
+// it rounds fraction x maximum. A full-byte (stat) row goes out as is.
+export function talentRollByte(value: number, maximum: number): number {
+  if (maximum < 0) {
+    return value & 0xff;
+  }
+  if (maximum === 0) {
+    return 0;
+  }
+  const steps = maximum + 1;
+  const low = Math.max(value / steps, (value - 0.5) / maximum);
+  const high = Math.min((value + 1) / steps, (value + 0.5) / maximum);
+  return Math.min(0xff, Math.max(0, Math.round((0xff * (low + high)) / 2)));
+}
+
+// The item's rolls as the 8 wire bytes (8080405E).
+export function itemTalentRollBytes(item: {
+  defIndex: number;
+  soid?: bigint;
+}): number[] {
+  const rows = talentGridDefinitionForDef(item.defIndex)?.randomRolls ?? [];
+  return itemTalentRolls(item).map((value, row) =>
+    talentRollByte(value, rows[row] ?? 0)
+  );
+}
+
 // The step an exclusive node with a random slot offers: the one its row
 // rolled. undefined for any other node (its steps activate in order).
 function rolledStep(
