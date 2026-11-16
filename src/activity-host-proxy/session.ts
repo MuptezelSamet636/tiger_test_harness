@@ -54,6 +54,7 @@ import { RegionCrossing, servesBubble } from "./region-crossing";
 import {
   parseRequestScriptUpdates,
   parseStateRefresh,
+  packBubbleStateHandle,
   type SensorAuthSenseEntry,
   unpackBubbleStateHandle,
   withoutSenseRows,
