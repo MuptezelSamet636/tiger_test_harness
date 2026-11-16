@@ -67,6 +67,9 @@ export interface DebugToggles {
   startPhase?: Readonly<Record<string, number>>;
   // Player objectives go out without their nav point slots.
   stripNavPoints?: boolean;
+  // Log every row of each apply (bundle, type, index, auth and sense
+  // bodies), to compare one world entry with the next.
+  dumpApplyRows?: boolean;
 }
 
 interface DebugTogglesRead {
@@ -150,6 +153,13 @@ export function parseDebugToggles(raw: unknown): DebugTogglesRead {
       case "allowGrantedEquip":
         if (typeof value === "boolean") {
           toggles.allowGrantedEquip = value;
+        } else {
+          problems.push(`${key}: expected true or false`);
+        }
+        break;
+      case "dumpApplyRows":
+        if (typeof value === "boolean") {
+          toggles.dumpApplyRows = value;
         } else {
           problems.push(`${key}: expected true or false`);
         }

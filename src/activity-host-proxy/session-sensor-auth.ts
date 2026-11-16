@@ -342,6 +342,9 @@ export class SensorAuthPushes {
         host instanceof ScriptHost ? host.itemSink?.entries() : undefined,
       sensors: applySensors,
     });
+    if (toggles.toggles.dumpApplyRows) {
+      dumpApplyRows(activityName, bubble, worldEntry, senseEntries);
+    }
     const rsat = buildSensorAuthUpdateRsat({
       activityTime: opts.activityTime,
       hasAuthorityTable: false,
@@ -518,6 +521,31 @@ export class SensorAuthPushes {
     }
     return [...crossing.promotedBubbles].filter(
       (bubble) => !crossing.abdicatedBubbles.has(bubble)
+    );
+  }
+}
+
+// debug-toggles dumpApplyRows: one line per row of an apply.
+function dumpApplyRows(
+  activityName: string,
+  bubble: number,
+  worldEntry: boolean,
+  entries: readonly SensorAuthSenseEntry[]
+): void {
+  for (const entry of entries) {
+    const { bundle, typeId, typeIndex } = entry.clientRef;
+    event_message(
+      "activities:host: apply-row %s bubble=%d%s b=%s t=%d i=%d auth=%s:%s sense=%s:%s",
+      activityName,
+      bubble,
+      worldEntry ? " entry" : "",
+      (bundle >>> 0).toString(16).padStart(8, "0"),
+      typeId,
+      typeIndex,
+      entry.authBits ?? "-",
+      entry.authBody?.toString("hex") ?? "-",
+      entry.senseBits ?? "-",
+      entry.senseBody?.toString("hex") ?? "-"
     );
   }
 }
