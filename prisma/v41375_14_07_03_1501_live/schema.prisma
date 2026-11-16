@@ -56,6 +56,10 @@ model character {
   // Cosmodrome prologue not started yet: the server sends character unlock
   // flag 1871 while set so world state 23 launches it.
   prologue_pending    Boolean          @default(false)
+  // The dev grants (item-grants.json) the character has had, a JSON array of
+  // def indices: a grant it dismantled or sold is not given again. Null
+  // until the server first records it.
+  granted_defs        String?
   created_at          DateTime         @default(now())
   last_played_at      DateTime?
   deleted_at          DateTime?

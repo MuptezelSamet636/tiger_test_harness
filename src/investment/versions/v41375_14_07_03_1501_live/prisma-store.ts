@@ -64,6 +64,22 @@ function loadoutItemOf(row: character_item) {
   };
 }
 
+// character.granted_defs: a JSON array of def indices; anything else reads
+// as none.
+function parseGrantedDefs(text: string | null): number[] {
+  if (!text) {
+    return [];
+  }
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return Array.isArray(parsed)
+      ? parsed.filter((value): value is number => Number.isInteger(value))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 function encodeTalentNodes(nodes: readonly number[]): Buffer {
   const bytes = Buffer.alloc(TALENT_NODE_COUNT);
   for (let i = 0; i < TALENT_NODE_COUNT; i++) {
@@ -91,7 +107,8 @@ export class PrismaCharacterStore implements CharacterStore {
   // still missing come last.
   private async loadoutFor(
     characterId: number,
-    classIndex: number
+    classIndex: number,
+    grantedDefs: string | null = null
   ): Promise<CharacterLoadout> {
     const read = () => this.readRows(characterId);
     let rows = await read();
@@ -140,7 +157,7 @@ export class PrismaCharacterStore implements CharacterStore {
         rows = await read();
       }
     }
-    rows = await this.applyGrants(characterId, classIndex, rows);
+    rows = await this.applyGrants(characterId, classIndex, rows, grantedDefs);
     return CharacterLoadout.fromItems(
       rows.filter((row) => row.vault_bucket === null).map(loadoutItemOf)
     );
@@ -182,18 +199,46 @@ export class PrismaCharacterStore implements CharacterStore {
 
   // item-grants.json: insert the grants the character is missing (an equip
   // grant also frees its slot) and re-read. No file, or nothing missing, is
-  // a no-op.
+  // a no-op. Each grant is given once: the character's granted_defs records
+  // what it has had, so a grant it dismantled or sold stays gone. A
+  // character from before the record that already holds any grant had them
+  // all at its earlier sign-ins: its record starts with every grant, and
+  // nothing is given.
   private async applyGrants(
     characterId: number,
     classIndex: number,
-    rows: character_item[]
+    rows: character_item[],
+    grantedDefs: string | null
   ): Promise<character_item[]> {
+    const grants = readItemGrants().grants;
+    const grantDefs = grants.grants.map((grant) => grant.defIndex);
+    const legacy =
+      grantedDefs === null &&
+      rows.some((row) => grantDefs.includes(row.def_index));
+    const granted = new Set<number>(
+      legacy ? grantDefs : parseGrantedDefs(grantedDefs)
+    );
     const plan = planItemGrants(
       rows,
       classIndex,
       soidFor(SOID_TYPE_CHARACTER, characterId),
-      readItemGrants().grants
+      grants,
+      granted
     );
+    // Held now or given now: had.
+    const owned = new Set(rows.map((row) => row.def_index));
+    const had = new Set([
+      ...granted,
+      ...grantDefs.filter((def) => owned.has(def)),
+      ...plan.creates.map((seed) => seed.defIndex),
+    ]);
+    const record = JSON.stringify([...had].sort((a, b) => a - b));
+    if (record !== grantedDefs) {
+      await this.prisma.character.update({
+        where: { id: characterId },
+        data: { granted_defs: record },
+      });
+    }
     if (plan.creates.length === 0 && plan.updates.length === 0) {
       return rows;
     }
@@ -450,7 +495,11 @@ export class PrismaCharacterStore implements CharacterStore {
       progressionXp: row.progression_xp,
       progressionZeroXp: row.progression_zero_xp,
       prologuePending: row.prologue_pending,
-      loadout: await this.loadoutFor(row.id, row.class_index),
+      loadout: await this.loadoutFor(
+        row.id,
+        row.class_index,
+        row.granted_defs
+      ),
       profile: row.profile ? Buffer.from(row.profile) : null,
       appearance: {
         race: row.race_index,

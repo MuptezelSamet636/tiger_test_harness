@@ -9,6 +9,7 @@ import type { LoadoutSeed } from "./loadout";
 import type { ItemRowUpdate, StoredItemRow } from "./loadout-repair";
 
 type ItemGrantSkip =
+  | "already granted"
   | "already owned"
   | "bucket full"
   | "class"
@@ -26,11 +27,16 @@ interface ItemGrantPlan {
 // One pass over a character's stored rows: the seeds to insert and, for an
 // equip grant, the row its slot displaces. Grants run in file order, so the
 // first ones get a bucket's room.
+//
+// `granted` is the defs the character has had from the grants before (a
+// store that records them): those are not given again once dismantled or
+// sold.
 export function planItemGrants(
   rows: readonly StoredItemRow[],
   classIndex: number,
   characterSoid: bigint,
-  grants: ItemGrants
+  grants: ItemGrants,
+  granted: ReadonlySet<number> = new Set()
 ): ItemGrantPlan {
   const creates: LoadoutSeed[] = [];
   const skipped: ItemGrantPlan["skipped"] = [];
@@ -75,6 +81,10 @@ export function planItemGrants(
     }
     if (owned.has(grant.defIndex)) {
       skip("already owned");
+      continue;
+    }
+    if (granted.has(grant.defIndex)) {
+      skip("already granted");
       continue;
     }
     if ((used.get(def.bucket) ?? 0) >= capacity) {
