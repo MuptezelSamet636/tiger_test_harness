@@ -2,12 +2,14 @@
 // the item definition index the wire uses. Names come from the client-side
 // item display table through the investment localized strings, both under the
 // investment globals root.
-import type { ItemRecord } from "../../../model/investment";
+import type { ItemAction, ItemRecord } from "../../../model/investment";
 import type { ContentReaders } from "../../content-build";
 import type { InvestmentGlobals } from "./investment-globals";
 import type { Packages } from "./package-set";
 
 const NO_STRING = 0xff_ff;
+// An action's reward resolver row: 0xFFFF for none.
+const NO_REWARD_ROW = 0xff_ff;
 
 const UNLOCK_OP_FLAG_SET = 1;
 
@@ -33,10 +35,31 @@ type DyeList = { key: number; value: number }[];
 const dyesOf = (list: DyeList | undefined) =>
   (list ?? []).map((pair) => ({ channel: pair.key, dye: pair.value }));
 
+// The def's action block (s_item_action_block).
+function itemActionOf(action: any): ItemAction | undefined {
+  if (!action) {
+    return;
+  }
+  return {
+    consumed: action.consumed !== 0,
+    onAcquire: action.use_on_acquire !== 0,
+    progressionRewards: (action.progression_rewards ?? []).map(
+      (reward: { amount: number; progression: number }) => ({
+        amount: reward.amount,
+        progression: reward.progression,
+      })
+    ),
+    rewardItem: action.reward_item,
+    rewardRow: action.unknown28 === NO_REWARD_ROW ? -1 : action.unknown28,
+    typeHash: action.action_type_hash >>> 0,
+  };
+}
+
 function itemRecordOf(def: any): ItemRecord {
   const { equipable, level } = def;
   const stats: any[] = def.stats?.stats ?? [];
   return {
+    action: itemActionOf(def.action),
     bucket: def.bucket,
     equipSlot: equipable ? equipable.equip_slot : null,
     sandboxPattern: equipable ? signed8(equipable.pattern) : -1,

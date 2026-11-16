@@ -20,22 +20,34 @@ export const vendorBuyItem: WorldServerHandler = async (ctx, message) => {
   const loadout = character?.loadout;
   const plan =
     req && loadout
-      ? planPurchase(loadout, req.vendorIndex, req.purchaseIndex)
+      ? planPurchase(
+          loadout,
+          req.vendorIndex,
+          req.purchaseIndex,
+          character?.appearance.classIndex
+        )
       : { status: VENDOR_STATUS_INVALID_ARGUMENTS };
   let newItemSoid: bigint | null = null;
+  // An instanced cost (a world engram the Cryptarch decodes) leaves the bag.
+  let spentSoid: bigint | null = null;
   if (plan.status === VENDOR_STATUS_OK && character) {
     newItemSoid = await applyPurchase(ctx.store, character, plan);
+    spentSoid = plan.cost?.remove ? plan.cost.item.soid : null;
   }
   ctx.reply(
     message,
     buildVendorBuyItemResponseBody(plan.status),
     `vendor_buy_item vendor=${req?.vendorIndex ?? -1} ` +
-      `purchase=${req?.purchaseIndex ?? -1} status=${plan.status}`
+      `purchase=${req?.purchaseIndex ?? -1} status=${plan.status}` +
+      (plan.status === VENDOR_STATUS_OK && plan.action.kind === "insert"
+        ? ` gave def=${plan.action.seed.defIndex}`
+        : "") +
+      (spentSoid ? ` spent soid=0x${spentSoid.toString(16)}` : "")
   );
   if (plan.status === VENDOR_STATUS_OK) {
     ctx.pushInventoryChange(
       newItemSoid ? [newItemSoid] : [],
-      [],
+      spentSoid ? [spentSoid] : [],
       "vendor_buy_item"
     );
   }

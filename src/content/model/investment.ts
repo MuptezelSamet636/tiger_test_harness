@@ -28,7 +28,29 @@ export interface ItemDyes {
   locked: readonly ItemDye[];
 }
 
+// What an item can be turned into or used for (the def's action block), in
+// builds that read it.
+export interface ItemAction {
+  // The action runs with the item consumed (the item goes when it runs).
+  consumed: boolean;
+  // Runs as soon as the item is acquired; the item is kept only when it isn't
+  // consumed.
+  onAcquire: boolean;
+  // Progression rewards the action grants.
+  progressionRewards: readonly { amount: number; progression: number }[];
+  // The item the action gives, -1 for none.
+  rewardItem: number;
+  // The reward resolver row the action hands to the investment (an engram's
+  // loot), -1 for none. What the row holds is not read yet.
+  rewardRow: number;
+  // fnv1 of the action's kind: "decrypt" (an engram's decode), "shard" (a
+  // dismantle), "open".
+  typeHash: number;
+}
+
 export interface ItemDef {
+  // The def's action block, in builds that read it.
+  action?: ItemAction;
   // -1 = none (the def's 0xFFFF).
   artArrangement: number;
   bucket: number;

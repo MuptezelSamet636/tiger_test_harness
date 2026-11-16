@@ -6,6 +6,7 @@
 import { itemDef } from "../content/items";
 import { vendorDefs } from "../content/vendors";
 import type { CharacterRecord, CharacterStore } from "./character-store";
+import { isDecodeItem, pickDecodedDef } from "./engrams";
 import {
   bagBucketFor,
   bucketSlotCounts,
@@ -24,6 +25,9 @@ export const VENDOR_STATUS_INVALID_ARGUMENTS = 4 as const;
 interface PurchaseCost {
   item: LoadoutItem;
   quantity: number;
+  // The cost is an instanced item (a world engram the Cryptarch decodes):
+  // it goes from the bag rather than a stack going down.
+  remove?: boolean;
 }
 
 type PurchaseAction =
@@ -60,32 +64,52 @@ const KEEP_DEFINITION_LEVEL = -0x80_00_00_00;
 // funds, then room. Only explicit-cost offers are priced — the item
 // definition value list that prices the rest isn't loaded, so those offers
 // come out free.
+//
+// An offer of a decode item (an engram: the Cryptarch's decodes and the
+// engrams he sells for glimmer) gives the gear it decodes into, never the
+// item itself: its action runs on acquire and consumes it.
 export function planPurchase(
   loadout: CharacterLoadout,
   vendorIndex: number,
-  purchaseIndex: number
+  purchaseIndex: number,
+  classIndex = -1
 ): PurchasePlan {
   const purchase = vendorDefs()[vendorIndex]?.purchases[purchaseIndex];
-  const def = purchase && itemDef(purchase.itemDef);
-  if (!(purchase && def)) {
+  const offered = purchase && itemDef(purchase.itemDef);
+  if (!(purchase && offered)) {
+    return { status: VENDOR_STATUS_INVALID_ARGUMENTS };
+  }
+  const defIndex = isDecodeItem(offered)
+    ? pickDecodedDef(purchase.itemDef, classIndex)
+    : purchase.itemDef;
+  const def = defIndex === undefined ? undefined : itemDef(defIndex);
+  if (defIndex === undefined || !def) {
     return { status: VENDOR_STATUS_INVALID_ARGUMENTS };
   }
 
   let cost: PurchaseCost | null = null;
   if (purchase.explicitCost && purchase.costQuantity > 0) {
-    const have = loadout.stackAt(
-      purchase.costDef,
-      storageBucket(purchase.costDef)
-    );
-    if ((have?.quantity ?? 0) < purchase.costQuantity) {
-      return { status: VENDOR_STATUS_NO_FUNDS };
+    if (itemDef(purchase.costDef)?.instanced) {
+      const have = loadout.unequippedInstanceOf(purchase.costDef);
+      if (!have) {
+        return { status: VENDOR_STATUS_NO_FUNDS };
+      }
+      cost = { item: have, quantity: 1, remove: true };
+    } else {
+      const have = loadout.stackAt(
+        purchase.costDef,
+        storageBucket(purchase.costDef)
+      );
+      if ((have?.quantity ?? 0) < purchase.costQuantity) {
+        return { status: VENDOR_STATUS_NO_FUNDS };
+      }
+      cost = { item: have as LoadoutItem, quantity: purchase.costQuantity };
     }
-    cost = { item: have as LoadoutItem, quantity: purchase.costQuantity };
   }
 
   const bucket = bagBucketFor(def.bucket);
   const seed: LoadoutSeed = {
-    defIndex: purchase.itemDef,
+    defIndex,
     bucket,
     equipSlot: null,
     instanced: def.instanced,
@@ -101,7 +125,7 @@ export function planPurchase(
   };
 
   if (!def.instanced) {
-    const existing = loadout.stackAt(purchase.itemDef, bucket);
+    const existing = loadout.stackAt(defIndex, bucket);
     if (existing && existing.quantity + purchase.quantity <= def.maxStack) {
       return {
         status: VENDOR_STATUS_OK,
@@ -115,8 +139,11 @@ export function planPurchase(
     }
   }
 
+  // A cost item that leaves the same bucket makes the room the new item takes
+  // (a world engram decoded into its own gear slot).
+  const freed = cost?.remove && cost.item.bucket === bucket ? 1 : 0;
   const slotCount = bucketSlotCounts()[bucket] ?? 0;
-  if (loadout.bucketCount(bucket) >= slotCount) {
+  if (loadout.bucketCount(bucket) - freed >= slotCount) {
     return { status: VENDOR_STATUS_NO_ROOM };
   }
   return { status: VENDOR_STATUS_OK, action: { kind: "insert", seed }, cost };
@@ -131,7 +158,10 @@ export async function applyPurchase(
   plan: PurchaseOk
 ): Promise<bigint | null> {
   const { loadout } = character;
-  if (plan.cost) {
+  if (plan.cost?.remove) {
+    await store.removeItem(plan.cost.item.soid);
+    loadout.removeItem(plan.cost.item.soid);
+  } else if (plan.cost) {
     plan.cost.item.quantity -= plan.cost.quantity;
     await store.setItemQuantity(plan.cost.item.soid, plan.cost.item.quantity);
   }

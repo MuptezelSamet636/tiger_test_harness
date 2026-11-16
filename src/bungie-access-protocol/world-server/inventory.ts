@@ -2,6 +2,7 @@ import { applyDismantle, planDismantle } from "../../investment/dismantle";
 import {
   buildInventoryResponseBody,
   e_server_message_network_id,
+  parseInventoryActionItem,
   parseInventoryItemSoid,
 } from "../rsat";
 import type { WorldServerHandler } from "./context";
@@ -22,11 +23,26 @@ export const inventoryRequest: WorldServerHandler = async (
   let destroyed = false;
   let changedSoids: bigint[] = [];
   let dismantled = "";
+  let stackRemoved = false;
   const character = ctx.character();
-  if (
+  const isAction =
+    networkId === nid._server_message_network_id_inventory_perform_item_action;
+  // A stack has no instance: the action names its def, and deleting it
+  // takes the whole stack (an engram bought before decodes ran is one).
+  const actionItem = isAction ? parseInventoryActionItem(message.body) : null;
+  const stack =
+    actionItem && !actionItem.hasInstance
+      ? character?.loadout.stackByDef(actionItem.defIndex)
+      : undefined;
+  if (stack && character) {
+    await ctx.store.removeItem(stack.soid);
+    character.loadout.removeItem(stack.soid);
+    dismantled = ` deleted stack def=${stack.defIndex} x${stack.quantity}`;
+    stackRemoved = true;
+  } else if (
     soid !== null &&
     character &&
-    networkId === nid._server_message_network_id_inventory_perform_item_action
+    isAction
   ) {
     const plan = planDismantle(
       character.loadout,
@@ -93,5 +109,7 @@ export const inventoryRequest: WorldServerHandler = async (
   }
   if (destroyed && soid !== null) {
     ctx.pushInventoryChange([], [soid], `inventory nid ${networkId}`);
+  } else if (stackRemoved) {
+    ctx.pushInventoryChange([], [], `inventory nid ${networkId}`);
   }
 };

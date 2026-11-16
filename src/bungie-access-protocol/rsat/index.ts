@@ -28,6 +28,7 @@ export {
   characterProfileOrbitKey,
   parseCharacterSoidRequest,
   parseFetchFamilyRequest,
+  parseInventoryActionItem,
   parseInventoryItemSoid,
   parseLoginAccountRequest,
   parseLoginCreateCharacterRequest,

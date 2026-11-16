@@ -331,6 +331,22 @@ function parseInventoryItemSoid(
   return schema ? (tryDecode(schema.request, body)?.itemSoid ?? null) : null;
 }
 
+// perform_item_action's item reference (402): a stack has no instance and is
+// named by its def.
+function parseInventoryActionItem(
+  body: Buffer
+): { defIndex: number; hasInstance: boolean; itemSoid: bigint } | null {
+  const item = tryDecode(liveBap().schemas.InventoryPerformItemActionRequest, body)
+    ?.item;
+  return item
+    ? {
+        defIndex: item.defIndex,
+        hasInstance: item.hasInstance,
+        itemSoid: item.itemSoid,
+      }
+    : null;
+}
+
 function buildInventoryResponseBody(networkId: number, ok: boolean): Buffer {
   const status = { unknown0: ok ? STATUS_OK : STATUS_FAILED };
   if (
@@ -531,6 +547,7 @@ export const messages: BapMessages = {
   characterProfileOrbitKey,
   parseCharacterSoidRequest,
   parseFetchFamilyRequest,
+  parseInventoryActionItem,
   parseInventoryItemSoid,
   parseLoginAccountRequest,
   parseLoginCreateCharacterRequest,

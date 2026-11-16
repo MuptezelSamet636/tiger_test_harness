@@ -94,6 +94,11 @@ export interface BapMessages {
   parseCharacterSoidRequest(body: Buffer, networkId: number): bigint | null;
   parseFetchFamilyRequest(body: Buffer): ParsedFetchFamilyRequest | null;
   parseInventoryItemSoid(body: Buffer, networkId: number): bigint | null;
+  // perform_item_action's item (402), with the def a stack is named by, in
+  // builds that read it.
+  parseInventoryActionItem?(
+    body: Buffer
+  ): { defIndex: number; hasInstance: boolean; itemSoid: bigint } | null;
   parseLoginAccountRequest(body: Buffer): ParsedLoginAccountRequest | null;
   parseLoginCreateCharacterRequest(
     body: Buffer

@@ -348,6 +348,14 @@ export class CharacterLoadout {
     return this.items.find((i) => !i.instanced && i.defIndex === defIndex);
   }
 
+  // An instance of a def in the bag (not equipped): what an instanced vendor
+  // cost takes.
+  unequippedInstanceOf(defIndex: number): LoadoutItem | undefined {
+    return this.items.find(
+      (i) => i.instanced && i.defIndex === defIndex && i.equipSlot === null
+    );
+  }
+
   // How many bag rows a bucket already holds, against
   // bucketSlotCounts for vendor purchase room checks.
   bucketCount(bucket: number): number {

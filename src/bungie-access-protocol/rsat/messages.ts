@@ -84,6 +84,10 @@ export const parseFetchFamilyRequest = (body: Buffer) =>
 export const parseInventoryItemSoid = (body: Buffer, networkId: number) =>
   messages().parseInventoryItemSoid(body, networkId);
 
+// Undefined in a build that does not read it.
+export const parseInventoryActionItem = (body: Buffer) =>
+  messages().parseInventoryActionItem?.(body) ?? null;
+
 export const parseLoginAccountRequest = (body: Buffer) =>
   messages().parseLoginAccountRequest(body);
 
