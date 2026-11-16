@@ -297,6 +297,25 @@ function bagSlots(character: CharacterRecord) {
   return slots;
 }
 
+// The character's progression rows (character-level.ts) with
+// debug-toggles.json progressionXp applied: a listed index's row gets that
+// XP, added when the character has none (reputations: Vanguard 119, Crucible
+// 120, whose ranks gate vendor stock).
+function progressionRowsFor(character: CharacterRecord) {
+  const rows = characterProgressionRows(character);
+  const extra = readDebugToggles().toggles.progressionXp ?? {};
+  for (const [key, xp] of Object.entries(extra)) {
+    const index = Number(key);
+    const row = rows.find((r) => r.unknown3 === index);
+    if (row) {
+      row.unknown0 = xp;
+    } else if (rows.length < 127) {
+      rows.push({ unknown0: xp, unknown1: 0, unknown2: 0, unknown3: index });
+    }
+  }
+  return rows;
+}
+
 // TIGER_SEND_VAULT=0 in .env sends no account bag (the self primary as it
 // was before the vault).
 let sendVaultValue: boolean | undefined;
@@ -468,7 +487,7 @@ export function selfCharacter(character: CharacterRecord): SelfCharacterValue {
     unknown6: characterProfile(character),
     // Progression rows: the level row (progression 109) at the character's
     // XP (or CHARACTER_LEVEL).
-    unknown7: { unknown0: characterProgressionRows(character) },
+    unknown7: { unknown0: progressionRowsFor(character) },
     unknown8: SELF_CHARACTER_UNKNOWN8,
     unknown9: lootSlots(character),
     // Character unlock flags (storage type 5): story / destination reveals.
@@ -1023,7 +1042,7 @@ export function inspectionCharacter(
     soid: character.soid,
     unknown1: appearanceEc(character),
     unknown2: appearanceF0(character),
-    unknown3: { unknown0: characterProgressionRows(character) },
+    unknown3: { unknown0: progressionRowsFor(character) },
     unknown4: undefined,
     unknown5: undefined,
     unknown6: undefined,

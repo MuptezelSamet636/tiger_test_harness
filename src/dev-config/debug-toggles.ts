@@ -34,6 +34,10 @@ export interface DebugToggles {
   // 8080405E: per-node step selection read as byte / 255) with this value
   // (0..255) instead of the item's own rolls.
   itemRollByte?: number;
+  // Progression index -> XP the self character's progression rows give it
+  // (added when the index has no row): reputations (Vanguard is 119,
+  // Crucible 120), whose ranks unlock vendor stock.
+  progressionXp?: Readonly<Record<string, number>>;
   // What the self primary's account bag carries: "all" (default), "glimmer"
   // (no vault slots), "vault" (no glimmer) or "none". Isolates a crash.
   accountBag?: "all" | "glimmer" | "none" | "vault";
@@ -162,6 +166,21 @@ export function parseDebugToggles(raw: unknown): DebugTogglesRead {
           toggles.grantLevelQuality = value;
         } else {
           problems.push(`${key}: expected "def" or "zero"`);
+        }
+        break;
+      case "progressionXp":
+        if (
+          value !== null &&
+          typeof value === "object" &&
+          !Array.isArray(value) &&
+          Object.entries(value).every(
+            ([index, xp]) =>
+              /^\d+$/.test(index) && Number.isInteger(xp) && (xp as number) >= 0
+          )
+        ) {
+          toggles.progressionXp = value as Record<string, number>;
+        } else {
+          problems.push(`${key}: expected {"progression index": xp}`);
         }
         break;
       case "accountBag":
