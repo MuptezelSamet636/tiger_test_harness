@@ -60,6 +60,10 @@ model character {
   // def indices: a grant it dismantled or sold is not given again. Null
   // until the server first records it.
   granted_defs        String?
+  // The character's progressions the server keeps beyond the level (the
+  // reputations bounty rewards raise), a JSON object {progression index: XP}.
+  // Null until the first is earned.
+  progressions        String?
   created_at          DateTime         @default(now())
   last_played_at      DateTime?
   deleted_at          DateTime?

@@ -74,6 +74,10 @@ export interface CharacterRecord {
   progressionZeroXp: number;
   // New character that hasn't finished the Cosmodrome prologue yet.
   prologuePending: boolean;
+  // XP of the progressions the server keeps beyond the level (the
+  // reputations bounty rewards raise), by progression index. A store without
+  // them leaves it unset.
+  reputation?: Record<number, number>;
   soid: bigint;
 }
 
@@ -91,6 +95,9 @@ export interface CharacterStore {
   addProgressionXp(soid: bigint, amount: number): Promise<number>;
   // Add points to progression 0 and return the character's new total.
   addProgressionZeroXp(soid: bigint, amount: number): Promise<number>;
+  // Add XP to another progression (a reputation) and return its new total.
+  // Optional: a store without it keeps none.
+  addProgression?(soid: bigint, index: number, amount: number): Promise<number>;
   character(soid: bigint): Promise<CharacterRecord | null>;
   // The character finished the prologue mission (act_cosmo_m0_highway).
   completePrologue(soid: bigint): Promise<void>;

@@ -64,6 +64,28 @@ function loadoutItemOf(row: character_item) {
   };
 }
 
+// character.progressions: a JSON object {progression index: XP}; anything
+// else reads as none.
+function parseProgressions(text: string | null): Record<number, number> {
+  const out: Record<number, number> = {};
+  if (!text) {
+    return out;
+  }
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      for (const [key, value] of Object.entries(parsed)) {
+        if (/^\d+$/.test(key) && Number.isFinite(value)) {
+          out[Number(key)] = value as number;
+        }
+      }
+    }
+  } catch {
+    // none
+  }
+  return out;
+}
+
 // character.granted_defs: a JSON array of def indices; anything else reads
 // as none.
 function parseGrantedDefs(text: string | null): number[] {
@@ -471,6 +493,25 @@ export class PrismaCharacterStore implements CharacterStore {
     return xp;
   }
 
+  async addProgression(
+    soid: bigint,
+    index: number,
+    amount: number
+  ): Promise<number> {
+    const row = await this.prisma.character.findUnique({
+      where: { id: soidRowId(soid) },
+      select: { progressions: true },
+    });
+    const progressions = parseProgressions(row?.progressions ?? null);
+    const xp = Math.max(0, (progressions[index] ?? 0) + amount);
+    progressions[index] = xp;
+    await this.prisma.character.update({
+      where: { id: soidRowId(soid) },
+      data: { progressions: JSON.stringify(progressions) },
+    });
+    return xp;
+  }
+
   async addProgressionZeroXp(soid: bigint, amount: number): Promise<number> {
     const row = await this.prisma.character.update({
       where: { id: soidRowId(soid) },
@@ -495,6 +536,7 @@ export class PrismaCharacterStore implements CharacterStore {
       progressionXp: row.progression_xp,
       progressionZeroXp: row.progression_zero_xp,
       prologuePending: row.prologue_pending,
+      reputation: parseProgressions(row.progressions),
       loadout: await this.loadoutFor(
         row.id,
         row.class_index,

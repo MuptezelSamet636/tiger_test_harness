@@ -645,6 +645,9 @@ export class SessionScriptHost {
     );
     const publisher = selfFamilyPublisherFor(character);
     publisher?.grantXp(killXp(), `kill 0x${header.incidentNumber.toString(16)}`);
+    if (readDebugToggles().toggles.bountyKillProgress) {
+      publisher?.creditBounties?.(1, "kill (bountyKillProgress)");
+    }
     // The drop's nonce is the kill's own incident number and submitter, which
     // the client's pickup (601) sends back. No per-combatant reward value is
     // resolved, so the chance is TIGER_LOOT_DROP_CHANCE's (loot-policy.ts).

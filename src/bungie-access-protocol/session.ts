@@ -17,6 +17,7 @@ import {
 } from "../activity-host-proxy/notification";
 import { activeBuild, clientBuildMatches } from "../builds";
 import { progressionDef } from "../content/progressions";
+import { activeBounties, advanceBounties } from "../investment/bounties";
 import { levelForXp } from "../investment/character-level";
 import { gearXpMultiplier } from "../investment/stubs/xp-policy";
 import { hasTalentGrid } from "../investment/talent-grid";
@@ -201,6 +202,45 @@ export class BungieAccessProtocolSession implements SelfFamilyPublisher {
       character.soid
     );
     this.families.pushInventoryChange([], [], "loot drop");
+  }
+
+  // Bounty progress (investment/bounties.ts): the active bounties `counts`
+  // accepts move, the delta carries their bars, and a completed one is
+  // swapped for its completed bounty.
+  creditBounties(
+    amount: number,
+    reason: string,
+    counts: (defIndex: number) => boolean = () => true
+  ): void {
+    const character = this.character;
+    if (!character || amount <= 0) {
+      return;
+    }
+    const bounties = activeBounties(character).filter((item) =>
+      counts(item.defIndex)
+    );
+    if (bounties.length === 0) {
+      return;
+    }
+    advanceBounties(this.store, character, bounties, amount)
+      .then(({ changed, completed }) => {
+        event_message(
+          "networking:bap: bounty progress +%d (%s) char=0x%I64x moved=%d completed=[%s]",
+          amount,
+          reason,
+          character.soid,
+          changed.length,
+          completed.map((c) => c.defIndex).join(",")
+        );
+        this.families.pushInventoryChange(
+          changed,
+          completed.map((c) => c.removed),
+          `bounty progress (${reason})`
+        );
+      })
+      .catch((error: unknown) => {
+        event_warning("networking:bap: bounty progress failed: %s", String(error));
+      });
   }
 
   // The client has no XP source of its own: a progression row changing in a

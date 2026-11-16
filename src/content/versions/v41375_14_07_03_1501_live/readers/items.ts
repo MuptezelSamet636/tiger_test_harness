@@ -8,6 +8,8 @@ import type { InvestmentGlobals } from "./investment-globals";
 import type { Packages } from "./package-set";
 
 const NO_STRING = 0xff_ff;
+// A contents entry's item: 0xFFFF for none.
+const NO_ITEM = 0xff_ff;
 // An action's reward resolver row: 0xFFFF for none.
 const NO_REWARD_ROW = 0xff_ff;
 
@@ -60,6 +62,11 @@ function itemRecordOf(def: any): ItemRecord {
   const stats: any[] = def.stats?.stats ?? [];
   return {
     action: itemActionOf(def.action),
+    contents: ((def.contents?.items ?? []) as { count: number; item: number }[])
+      .slice(0, def.contents?.count ?? 0)
+      .filter((entry) => entry.item !== NO_ITEM && entry.count > 0)
+      .map((entry) => ({ count: entry.count, item: entry.item })),
+    nameHash: def.name_hash >>> 0,
     bucket: def.bucket,
     equipSlot: equipable ? equipable.equip_slot : null,
     sandboxPattern: equipable ? signed8(equipable.pattern) : -1,

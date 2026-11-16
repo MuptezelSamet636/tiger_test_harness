@@ -87,6 +87,10 @@ export interface DebugToggles {
   // place of all of them. A bubble left and entered again then comes back
   // into the table, where with all of them listed the table never changes.
   trackedAuthority?: boolean;
+  // Every kill adds 1 to every active bounty, whatever it asks for: a test of
+  // the bars, the completion and the turn-in until bounties have their own
+  // rules.
+  bountyKillProgress?: boolean;
 }
 
 // What the PS4 live build's Tower runs with unless debug-toggles.json says
@@ -202,6 +206,13 @@ export function parseDebugToggles(raw: unknown): DebugTogglesRead {
           toggles.reentryRespawn = value;
         } else {
           problems.push(`${key}: expected "actors", "squads" or "both"`);
+        }
+        break;
+      case "bountyKillProgress":
+        if (typeof value === "boolean") {
+          toggles.bountyKillProgress = value;
+        } else {
+          problems.push(`${key}: expected true or false`);
         }
         break;
       case "trackedAuthority":

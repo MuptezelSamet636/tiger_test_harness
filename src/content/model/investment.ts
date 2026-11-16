@@ -51,6 +51,12 @@ export interface ItemAction {
 export interface ItemDef {
   // The def's action block, in builds that read it.
   action?: ItemAction;
+  // What opening the item grants (its contents block), times its quantity:
+  // a bounty's rewards. Builds that read it.
+  contents?: readonly { count: number; item: number }[];
+  // The item table's key (builds that read it): a bounty's progression has
+  // the same name hash.
+  nameHash?: number;
   // -1 = none (the def's 0xFFFF).
   artArrangement: number;
   bucket: number;

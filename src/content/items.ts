@@ -28,6 +28,8 @@ function classFor(flag: number | null): number {
 function itemDefOf(record: ItemRecord): ItemDef {
   return {
     action: record.action,
+    contents: record.contents,
+    nameHash: record.nameHash,
     bucket: record.bucket,
     equipSlot: record.equipSlot,
     sandboxPattern: record.sandboxPattern,

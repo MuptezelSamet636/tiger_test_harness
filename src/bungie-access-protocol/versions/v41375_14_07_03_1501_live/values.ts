@@ -1,5 +1,6 @@
 import { event_message } from "@blamnetwork/datamine";
 import type { rsat } from "@blamnetwork/rsat";
+import { bountyProgression } from "../../../content/bounties";
 import { equipSlotIds } from "../../../content/inventory";
 import { itemDef } from "../../../content/items";
 import {
@@ -301,11 +302,19 @@ function bagSlots(character: CharacterRecord) {
 // debug-toggles.json progressionXp applied: a listed index's row gets that
 // XP, added when the character has none (reputations: Vanguard 119, Crucible
 // 120, whose ranks gate vendor stock).
+// The level row, then the reputations: the XP the character earned (bounty
+// turn-ins), on top of what debug-toggles progressionXp gives it.
 function progressionRowsFor(character: CharacterRecord) {
   const rows = characterProgressionRows(character);
   const extra = readDebugToggles().toggles.progressionXp ?? {};
+  const totals = new Map<number, number>();
   for (const [key, xp] of Object.entries(extra)) {
-    const index = Number(key);
+    totals.set(Number(key), xp);
+  }
+  for (const [key, xp] of Object.entries(character.reputation ?? {})) {
+    totals.set(Number(key), (totals.get(Number(key)) ?? 0) + xp);
+  }
+  for (const [index, xp] of totals) {
     const row = rows.find((r) => r.unknown3 === index);
     if (row) {
       row.unknown0 = xp;
@@ -571,9 +580,14 @@ const LIVE_TALENT_NODE_BYTES = 36;
 // here; an item without a grid keeps none.
 function talentGridInstance(item: LoadoutItem) {
   const withGrid = sendTalentGrids() && hasTalentGrid(item.defIndex);
+  // An active bounty has no grid: its row is its own progression, its XP the
+  // bounty's progress, which the client draws as the bar.
+  const bounty = withGrid ? undefined : bountyProgression(item.defIndex);
   // 0xFF is talentGridProgression's "none" (the alpha's u8 field); this one is
   // an i16.
-  const progression = withGrid ? talentGridProgression(item.defIndex) : 0xff;
+  const progression = withGrid
+    ? talentGridProgression(item.defIndex)
+    : (bounty?.index ?? 0xff);
   return {
     unknown0: {
       unknown0: item.talentXp,

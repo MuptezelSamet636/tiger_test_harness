@@ -6,6 +6,7 @@
 import { itemDef } from "../content/items";
 import { vendorDefs } from "../content/vendors";
 import type { CharacterRecord, CharacterStore } from "./character-store";
+import { type BountyRewards, bountyRewards } from "./bounties";
 import { isDecodeItem, pickDecodedDef } from "./engrams";
 import {
   bagBucketFor,
@@ -32,7 +33,11 @@ interface PurchaseCost {
 
 type PurchaseAction =
   | { kind: "insert"; seed: LoadoutSeed }
-  | { kind: "merge"; target: LoadoutItem; addQuantity: number };
+  | { kind: "merge"; target: LoadoutItem; addQuantity: number }
+  // An item whose action runs on acquire and consumes it, which is not a
+  // decode (a bounty's reward item): nothing goes in the bag, and what it
+  // grants is the spent cost's contents (the completed bounty's rewards).
+  | { kind: "consume"; rewards: BountyRewards };
 
 export interface PurchaseOk {
   action: PurchaseAction;
@@ -79,6 +84,10 @@ export function planPurchase(
   if (!(purchase && offered)) {
     return { status: VENDOR_STATUS_INVALID_ARGUMENTS };
   }
+  const consumed =
+    !isDecodeItem(offered) &&
+    offered.action?.onAcquire === true &&
+    offered.action.consumed;
   const defIndex = isDecodeItem(offered)
     ? pickDecodedDef(purchase.itemDef, classIndex)
     : purchase.itemDef;
@@ -105,6 +114,19 @@ export function planPurchase(
       }
       cost = { item: have as LoadoutItem, quantity: purchase.costQuantity };
     }
+  }
+
+  // Only one whose rewards the server knows (a bounty's): any other is put in
+  // the bag as before.
+  const rewards = bountyRewards(
+    purchase.explicitCost ? purchase.costDef : purchase.itemDef
+  );
+  if (consumed && (rewards.experience > 0 || rewards.reputation.size > 0)) {
+    return {
+      status: VENDOR_STATUS_OK,
+      action: { kind: "consume", rewards },
+      cost,
+    };
   }
 
   const bucket = bagBucketFor(def.bucket);
@@ -163,7 +185,23 @@ export async function applyPurchase(
     loadout.removeItem(plan.cost.item.soid);
   } else if (plan.cost) {
     plan.cost.item.quantity -= plan.cost.quantity;
-    await store.setItemQuantity(plan.cost.item.soid, plan.cost.item.quantity);
+    // A spent single item (a completed bounty turned in) leaves the bag; a
+    // currency stack stays at 0.
+    if (
+      plan.cost.item.quantity <= 0 &&
+      (itemDef(plan.cost.item.defIndex)?.maxStack ?? 0) <= 1
+    ) {
+      await store.removeItem(plan.cost.item.soid);
+      loadout.removeItem(plan.cost.item.soid);
+    } else {
+      await store.setItemQuantity(
+        plan.cost.item.soid,
+        plan.cost.item.quantity
+      );
+    }
+  }
+  if (plan.action.kind === "consume") {
+    return null;
   }
   if (plan.action.kind === "merge") {
     plan.action.target.quantity += plan.action.addQuantity;

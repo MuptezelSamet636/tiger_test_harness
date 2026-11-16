@@ -27,6 +27,14 @@ export interface SelfFamilyPublisher {
   // Add XP to the level progression and push the delta that makes the client
   // show the XP toast, and a level-up when the level moves.
   grantXp(amount: number, reason: string): void;
+  // Add progress to the character's active bounties (all of them, or the
+  // defs `counts` accepts) and push the delta; one that reaches its target
+  // becomes its completed bounty.
+  creditBounties?(
+    amount: number,
+    reason: string,
+    counts?: (defIndex: number) => boolean
+  ): void;
   // The signed-in character's power level as its client computes it, read
   // live (gear changes it). Undefined with no character signed in.
   powerLevel?(): number | undefined;

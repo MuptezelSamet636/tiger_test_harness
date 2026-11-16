@@ -12,6 +12,7 @@ import {
   parseVendorBuyItemRequest,
   parseVendorSellItemRequest,
 } from "../rsat";
+import { selfFamilyPublisherFor } from "../../players/registry";
 import type { WorldServerHandler } from "./context";
 
 export const vendorBuyItem: WorldServerHandler = async (ctx, message) => {
@@ -30,9 +31,32 @@ export const vendorBuyItem: WorldServerHandler = async (ctx, message) => {
   let newItemSoid: bigint | null = null;
   // An instanced cost (a world engram the Cryptarch decodes) leaves the bag.
   let spentSoid: bigint | null = null;
+  let granted = "";
   if (plan.status === VENDOR_STATUS_OK && character) {
     newItemSoid = await applyPurchase(ctx.store, character, plan);
     spentSoid = plan.cost?.remove ? plan.cost.item.soid : null;
+    // A bounty turned in: its XP and reputation.
+    if (plan.action.kind === "consume") {
+      const { experience, reputation } = plan.action.rewards;
+      for (const [index, amount] of reputation) {
+        const xp = await ctx.store.addProgression?.(
+          character.soid,
+          index,
+          amount
+        );
+        if (xp !== undefined) {
+          character.reputation = { ...character.reputation, [index]: xp };
+        }
+        granted += ` +${amount} progression ${index}`;
+      }
+      if (experience > 0) {
+        selfFamilyPublisherFor(character.soid)?.grantXp(
+          experience,
+          "bounty turned in"
+        );
+        granted += ` +${experience} XP`;
+      }
+    }
   }
   ctx.reply(
     message,
@@ -42,7 +66,8 @@ export const vendorBuyItem: WorldServerHandler = async (ctx, message) => {
       (plan.status === VENDOR_STATUS_OK && plan.action.kind === "insert"
         ? ` gave def=${plan.action.seed.defIndex}`
         : "") +
-      (spentSoid ? ` spent soid=0x${spentSoid.toString(16)}` : "")
+      (spentSoid ? ` spent soid=0x${spentSoid.toString(16)}` : "") +
+      granted
   );
   if (plan.status === VENDOR_STATUS_OK) {
     ctx.pushInventoryChange(
