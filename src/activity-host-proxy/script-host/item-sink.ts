@@ -251,6 +251,10 @@ export class ItemSink {
   private readonly ownerOf = new Map<string, string>();
   private readonly squads = new Map<string, SquadWire>();
   private readonly actors = new Map<string, ActorState>();
+  // Actor row -> how many times a re-entry has spawned it anew
+  // (debug-toggles reentryRespawn): added to its incarnation and behaviour
+  // generation.
+  private readonly respawns = new Map<string, number>();
   // Every other written row's body.
   private readonly bodies = new Map<string, FinishedBits>();
   // Rows whose sensor has a sense schema (the tables' sensors); squads and
@@ -346,6 +350,34 @@ export class ItemSink {
 
   setDebugToggles(toggles: DebugToggles): void {
     this.toggles = toggles;
+  }
+
+  // A world entry back into a bubble (debug-toggles reentryRespawn): the
+  // placed rows of its own bundles go out as a new spawn. Returns how many
+  // rows changed.
+  respawnBundles(
+    bundles: ReadonlySet<number>,
+    which: "actors" | "both" | "squads"
+  ): number {
+    let changed = 0;
+    for (const [rowKey, ref] of this.refs) {
+      if (!bundles.has(ref.bundle >>> 0)) {
+        continue;
+      }
+      if (which !== "squads" && this.actors.get(rowKey)?.placed) {
+        this.respawns.set(rowKey, (this.respawns.get(rowKey) ?? 0) + 1);
+        this.dirty.add(rowKey);
+        changed++;
+      }
+      const squad = this.squads.get(rowKey);
+      if (which !== "actors" && squad) {
+        squad.epoch = (squad.epoch ?? 0) + 1;
+        squad.bindingGeneration += 1;
+        this.dirty.add(rowKey);
+        changed++;
+      }
+    }
+    return changed;
   }
 
   // Where a squad's Objective comes from before a script sets one.
@@ -777,7 +809,7 @@ export class ItemSink {
     }
     const body = squad
       ? this.squadBody(rowKey, squad)
-      : this.actorBody(this.actors.get(rowKey));
+      : this.actorBody(this.actors.get(rowKey), rowKey);
     if (body) {
       return [entryOn(ref.bundle, ref.typeId, ref.typeIndex, body, true)];
     }
@@ -867,7 +899,7 @@ export class ItemSink {
     });
   }
 
-  private actorBody(actor: ActorState | undefined) {
+  private actorBody(actor: ActorState | undefined, rowKey?: string) {
     if (!actor) {
       return;
     }
@@ -876,23 +908,34 @@ export class ItemSink {
     // so far. A toggle, until a console says which the client needs.
     const capturedBody =
       this.toggles.actorPlaceBody === "retail" && actor.placed;
+    const respawns = rowKey === undefined ? 0 : (this.respawns.get(rowKey) ?? 0);
     let behaviour: ActorAuthFields["behaviour"];
     if (actor.behaviour) {
       behaviour = {
         awarenessFlags: actor.behaviour.awarenessFlags,
         awarenessMask: actor.behaviour.awarenessMask,
         channels: actor.behaviour.channels,
-        generation: actor.behaviour.incarnation,
+        generation: actor.behaviour.incarnation + respawns,
         temperaments: actor.behaviour.temperaments,
       };
     } else if (capturedBody) {
-      behaviour = { awarenessFlags: 0, awarenessMask: 0, generation: 1 };
+      behaviour = {
+        awarenessFlags: 0,
+        awarenessMask: 0,
+        generation: 1 + respawns,
+      };
     }
+    const incarnation = actor.incarnation ?? (capturedBody ? 1 : undefined);
     return encodeActorAuth({
       behaviour,
       carried: actor.carried,
       drop: actor.drop && { dropId: actor.drop.id, refs: actor.drop.squads },
-      incarnation: actor.incarnation ?? (capturedBody ? 1 : undefined),
+      incarnation:
+        incarnation === undefined
+          ? respawns > 0
+            ? 1 + respawns
+            : undefined
+          : incarnation + respawns,
       kill: actor.kill,
       place: actor.placed,
       script: actor.commandScript,

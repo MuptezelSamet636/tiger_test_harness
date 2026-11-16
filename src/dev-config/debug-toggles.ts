@@ -70,6 +70,12 @@ export interface DebugToggles {
   // Log every row of each apply (bundle, type, index, auth and sense
   // bodies), to compare one world entry with the next.
   dumpApplyRows?: boolean;
+  // A world entry into a bubble this session has been in before spawns its
+  // own bundles' placed rows anew: "actors" bumps each placed named actor's
+  // incarnation and behaviour generation, "squads" each written squad's epoch
+  // and binding generation, "both" both. The Tower plaza's vendors are gone
+  // on a return, though the re-entry carries them placed.
+  reentryRespawn?: "actors" | "both" | "squads";
 }
 
 interface DebugTogglesRead {
@@ -155,6 +161,13 @@ export function parseDebugToggles(raw: unknown): DebugTogglesRead {
           toggles.allowGrantedEquip = value;
         } else {
           problems.push(`${key}: expected true or false`);
+        }
+        break;
+      case "reentryRespawn":
+        if (value === "actors" || value === "both" || value === "squads") {
+          toggles.reentryRespawn = value;
+        } else {
+          problems.push(`${key}: expected "actors", "squads" or "both"`);
         }
         break;
       case "dumpApplyRows":

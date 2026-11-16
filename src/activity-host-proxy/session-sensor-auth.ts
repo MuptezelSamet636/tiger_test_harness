@@ -13,6 +13,7 @@ import {
 } from "../content";
 import { activityBundleItemType } from "../content/row-types";
 import {
+  type DebugToggles,
   describeDebugToggles,
   readDebugToggles,
 } from "../dev-config/debug-toggles";
@@ -36,6 +37,7 @@ import {
   type PlayerRowsState,
 } from "./rsat/sensor-auth-fields";
 import { scenarioClient } from "./scenario-client";
+import type { ItemSink } from "./script-host/item-sink";
 import { ScriptHost } from "./script-host/runtime";
 import type { SessionContext } from "./session-context";
 import { activityHostBuild } from "./versions";
@@ -65,6 +67,9 @@ export class SensorAuthPushes {
   // world. They are built once per activity and kept across slice sets, so a
   // swap only needs their sensors of the new slice set.
   private readonly builtGlobals = new Set<number>();
+  // Bubbles this session has had a world entry into (debug-toggles
+  // reentryRespawn).
+  private readonly enteredBubbles = new Set<number>();
   private granted = false;
 
   constructor(private readonly session: SessionContext) {}
@@ -297,6 +302,15 @@ export class SensorAuthPushes {
         host.runReadyThreads();
       }
     }
+    if (worldEntry && rows) {
+      this.respawnOnReentry(
+        activityName,
+        bubble,
+        loaded,
+        toggles.toggles,
+        rows
+      );
+    }
     const layout = activityHostBuild().applyLayout;
     const applySensors = sensors.map((sensor) => {
       // A trigger group's idle body refs the volume it watches; a zero auth
@@ -470,6 +484,37 @@ export class SensorAuthPushes {
       return "all";
     }
     return kind === "GAH" ? "public" : "private";
+  }
+
+  // A world entry back into a bubble this session has been in before
+  // (debug-toggles reentryRespawn): its own bundles' placed rows spawn anew.
+  private respawnOnReentry(
+    activityName: string,
+    bubble: number,
+    loaded: { authoritative: readonly number[]; private: readonly number[] },
+    toggles: DebugToggles,
+    rows: ItemSink
+  ): void {
+    const returning = this.enteredBubbles.has(bubble);
+    this.enteredBubbles.add(bubble);
+    const which = toggles.reentryRespawn;
+    if (!(returning && which)) {
+      return;
+    }
+    const own = new Set([...loaded.authoritative, ...loaded.private]);
+    const bundles = new Set(
+      this.worldTags(activityName, bubble)
+        .filter((tag) => own.has(tag.tag))
+        .map((tag) => tag.bundle >>> 0)
+    );
+    const changed = rows.respawnBundles(bundles, which);
+    event_message(
+      "activities:host: re-entry into bubble %d respawns %s: %d rows in %s",
+      bubble,
+      which,
+      changed,
+      [...bundles].map((b) => b.toString(16).padStart(8, "0")).join(",")
+    );
   }
 
   // The tags this host's world builds in a bubble: everything for a lone
