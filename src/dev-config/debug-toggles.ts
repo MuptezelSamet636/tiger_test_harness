@@ -81,6 +81,11 @@ export interface DebugToggles {
   // the state refresh, before the globals go out, as an announced crossing
   // does. Off, the refresh's GAS still names the bubble the client left.
   refreshLandsSlice?: boolean;
+  // Every activity's authority promote lists only the bubbles the client
+  // holds (the ones it has not abdicated at a swap), as Venus's does, in
+  // place of all of them. A bubble left and entered again then comes back
+  // into the table, where with all of them listed the table never changes.
+  trackedAuthority?: boolean;
 }
 
 interface DebugTogglesRead {
@@ -173,6 +178,13 @@ export function parseDebugToggles(raw: unknown): DebugTogglesRead {
           toggles.reentryRespawn = value;
         } else {
           problems.push(`${key}: expected "actors", "squads" or "both"`);
+        }
+        break;
+      case "trackedAuthority":
+        if (typeof value === "boolean") {
+          toggles.trackedAuthority = value;
+        } else {
+          problems.push(`${key}: expected true or false`);
         }
         break;
       case "refreshLandsSlice":

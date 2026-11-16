@@ -548,7 +548,12 @@ export class SensorAuthPushes {
   // grows, because a held slot missing from a later table asserts.
   private authorityBubbles(): readonly number[] | undefined {
     const opts = this.opts();
-    if (!minimalGrantActivity(opts.activityName)) {
+    if (
+      !(
+        minimalGrantActivity(opts.activityName) ||
+        readDebugToggles().toggles.trackedAuthority
+      )
+    ) {
       return;
     }
     const { crossing } = this.session;
