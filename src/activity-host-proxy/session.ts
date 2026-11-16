@@ -641,6 +641,7 @@ export class ActivityHostProxySession implements HostSession, SessionContext {
       return;
     }
     this.promotePendingHost(refresh, previousBubble, enteringWorld);
+    this.landUnannouncedSwap(refresh, previousBubble);
     if (this.activityStateSent) {
       pushEntityIndexGrant(this, sessionId);
       this.membership.push(
@@ -662,6 +663,37 @@ export class ActivityHostProxySession implements HostSession, SessionContext {
     }
     this.sensorAuth.pushPromote(sessionId);
     this.landRefreshedBubble(sessionId, previousBubble);
+  }
+
+  // A swap with no announced crossing (debug-toggles refreshLandsSlice): the
+  // client went back over a load zone by the region its last crossing left
+  // behind, so no pending region moved the current slice. The refresh's GAS
+  // names the current slice as the region the client is in, so it moves
+  // here, before the membership and globals, as applyPendingRegion moves it for an
+  // announced crossing.
+  private landUnannouncedSwap(
+    refresh: StateRefresh | undefined,
+    previousBubble: number | undefined
+  ): void {
+    const bubble = refresh?.bubble;
+    const activityName = this.activityName();
+    if (
+      !readDebugToggles().toggles.refreshLandsSlice ||
+      bubble === undefined ||
+      previousBubble === undefined ||
+      bubble === previousBubble ||
+      this.crossing.currentSlice === bubble ||
+      !(activityName && servesBubble(activityName, bubble))
+    ) {
+      return;
+    }
+    event_message(
+      "activities:host:region: unannounced swap %s -> %d: current slice moves before the globals",
+      this.crossing.currentSlice ?? "none",
+      bubble
+    );
+    this.crossing.currentSlice = bubble;
+    this.crossing.currentBubbleState = 0;
   }
 
   // Reads the refresh and moves the client's bubble to the one it names;

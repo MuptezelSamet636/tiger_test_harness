@@ -76,6 +76,11 @@ export interface DebugToggles {
   // and binding generation, "both" both. The Tower plaza's vendors are gone
   // on a return, though the re-entry carries them placed.
   reentryRespawn?: "actors" | "both" | "squads";
+  // A swap the client makes without announcing a crossing (no transition
+  // token: back over a load zone it came in by) moves the current slice at
+  // the state refresh, before the globals go out, as an announced crossing
+  // does. Off, the refresh's GAS still names the bubble the client left.
+  refreshLandsSlice?: boolean;
 }
 
 interface DebugTogglesRead {
@@ -168,6 +173,13 @@ export function parseDebugToggles(raw: unknown): DebugTogglesRead {
           toggles.reentryRespawn = value;
         } else {
           problems.push(`${key}: expected "actors", "squads" or "both"`);
+        }
+        break;
+      case "refreshLandsSlice":
+        if (typeof value === "boolean") {
+          toggles.refreshLandsSlice = value;
+        } else {
+          problems.push(`${key}: expected true or false`);
         }
         break;
       case "dumpApplyRows":
