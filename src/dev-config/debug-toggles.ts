@@ -16,6 +16,7 @@
 // and the self family encoder, on every character read / push.
 import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
+import { activeBuild, e_build } from "../builds";
 import { workingDir } from "../env";
 
 export interface DebugToggles {
@@ -86,6 +87,29 @@ export interface DebugToggles {
   // place of all of them. A bubble left and entered again then comes back
   // into the table, where with all of them listed the table never changes.
   trackedAuthority?: boolean;
+}
+
+// What the PS4 live build's Tower runs with unless debug-toggles.json says
+// otherwise: the vendors need the retail place body to show at all, and the
+// tracked authority table to show again in a bubble entered a second time.
+const LIVE_TOWER_DEFAULTS: DebugToggles = {
+  actorPlaceBody: "retail",
+  trackedAuthority: true,
+};
+
+// The toggles an activity runs with: the file's, over the activity's own
+// defaults.
+export function activityToggles(
+  toggles: DebugToggles,
+  activityName: string | undefined
+): DebugToggles {
+  if (
+    !activityName?.startsWith("city_tower") ||
+    activeBuild() !== e_build.v41375_14_07_03_1501_live
+  ) {
+    return toggles;
+  }
+  return { ...LIVE_TOWER_DEFAULTS, ...toggles };
 }
 
 interface DebugTogglesRead {

@@ -16,7 +16,10 @@ import {
 } from "../../content";
 import { activityName as activityNameForId } from "../../content/activities";
 import { activityBundleItemType } from "../../content/row-types";
-import { readDebugToggles } from "../../dev-config/debug-toggles";
+import {
+  activityToggles,
+  readDebugToggles,
+} from "../../dev-config/debug-toggles";
 import { resolveScriptHandles } from "../../env";
 import { activityCompleteXp, killXp } from "../../investment/stubs/xp-policy";
 import { powerLevelOf, selfFamilyPublisherFor } from "../../players/registry";
@@ -799,7 +802,9 @@ export class SessionScriptHost {
     if (loaded) {
       host.setActiveBundles(loaded);
     }
-    rows.setDebugToggles(readDebugToggles().toggles);
+    rows.setDebugToggles(
+      activityToggles(readDebugToggles().toggles, activityName)
+    );
     this.context.stepTeleport(activityName);
     // A member joining or leaving changes its player row.
     this.context.playerRows(

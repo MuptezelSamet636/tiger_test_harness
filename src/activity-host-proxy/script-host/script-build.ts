@@ -7,7 +7,13 @@
 // The release executable has no sources: its compiled_bs trees were built
 // with it and are read from its assets (the same reader, another source).
 
-import { type FSWatcher, readdirSync, statSync, watch } from "node:fs";
+import {
+  existsSync,
+  type FSWatcher,
+  readdirSync,
+  statSync,
+  watch,
+} from "node:fs";
 import { join, resolve } from "node:path";
 import {
   CompiledBsError,
@@ -91,7 +97,7 @@ export function buildScripts(
   let set: CompiledScriptSet;
   let files: readonly ScriptFile[] = [];
   try {
-    files = loadScriptFolder(sourceDir).files;
+    files = withLocalScripts(loadScriptFolder(sourceDir).files);
     const compiled = compileScriptFiles(files);
     for (const diagnostic of compiled.diagnostics) {
       event_message(
@@ -122,6 +128,31 @@ export function buildScripts(
     Date.now() - started
   );
   return set;
+}
+
+// Scripts this repository keeps for a build whose Fukugen Daihon folder
+// lacks them (local-scripts/<build folder>/es/...): the live build ships no
+// Tower North (enc_boulevard_amb1). They join the folder's, replacing a file
+// of the same path.
+export function localScriptFolder(): string {
+  return join(workingDir(), "local-scripts", buildFolder(activeBuild()));
+}
+
+function withLocalScripts(
+  files: readonly ScriptFile[]
+): readonly ScriptFile[] {
+  const dir = localScriptFolder();
+  if (!existsSync(dir)) {
+    return files;
+  }
+  const local = loadScriptFolder(dir).files;
+  const paths = new Set(local.map((file) => file.path));
+  event_message(
+    "bullshcript:build: script build: %d local files from %s",
+    local.length,
+    dir
+  );
+  return [...files.filter((file) => !paths.has(file.path)), ...local];
 }
 
 // Every source's path, size and mtime: what a rebuild compares to know
@@ -172,9 +203,16 @@ export function startScriptBuild(
   const outDir = options.outDir ?? compiledBsDir();
   const onRebuilt = options.onRebuilt ?? restartScriptedActivities;
   buildScripts(sourceDir, outDir);
-  let signature = sourceSignature(sourceDir);
+  const signatureNow = () => {
+    const local = localScriptFolder();
+    return (
+      sourceSignature(sourceDir) +
+      (existsSync(local) ? `\n${sourceSignature(local)}` : "")
+    );
+  };
+  let signature = signatureNow();
   const rebuild = (): CompiledScriptSet | undefined => {
-    const next = sourceSignature(sourceDir);
+    const next = signatureNow();
     if (next === signature) {
       return;
     }
@@ -211,7 +249,7 @@ export function startScriptBuild(
     );
   }
   const poll = setInterval(() => {
-    if (sourceSignature(sourceDir) !== signature) {
+    if (signatureNow() !== signature) {
       rebuildSoon();
     }
   }, POLL_MS);

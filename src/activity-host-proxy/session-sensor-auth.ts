@@ -13,6 +13,7 @@ import {
 } from "../content";
 import { activityBundleItemType } from "../content/row-types";
 import {
+  activityToggles,
   type DebugToggles,
   describeDebugToggles,
   readDebugToggles,
@@ -282,7 +283,7 @@ export class SensorAuthPushes {
       worldEntry && kind === "FAH" ? activityBinder(activityName) : undefined;
     const host = scripts.host;
     const rows = host instanceof ScriptHost ? host.itemSink : undefined;
-    rows?.setDebugToggles(toggles.toggles);
+    rows?.setDebugToggles(activityToggles(toggles.toggles, activityName));
     // A crossing's world entry runs the newly active bundles first, with the
     // clock where it is, so what they place rides the entry. The first entry's
     // scripts start 1.5 s after it, unless it is a debug start into a later
@@ -307,7 +308,7 @@ export class SensorAuthPushes {
         activityName,
         bubble,
         loaded,
-        toggles.toggles,
+        activityToggles(toggles.toggles, activityName),
         rows
       );
     }
@@ -551,7 +552,8 @@ export class SensorAuthPushes {
     if (
       !(
         minimalGrantActivity(opts.activityName) ||
-        readDebugToggles().toggles.trackedAuthority
+        activityToggles(readDebugToggles().toggles, opts.activityName)
+          .trackedAuthority
       )
     ) {
       return;
