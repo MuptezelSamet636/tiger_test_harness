@@ -667,10 +667,9 @@ export class ActivityHostProxySession implements HostSession, SessionContext {
 
   // A swap with no announced crossing (debug-toggles refreshLandsSlice): the
   // client went back over a load zone by the region its last crossing left
-  // behind, so no pending region moved the current slice. The refresh's GAS
-  // names the current slice as the region the client is in, so it moves
-  // here, before the membership and globals, as applyPendingRegion moves it for an
-  // announced crossing.
+  // behind, so no pending region moved the current slice or the PAH rows.
+  // Both move here, before the membership and globals, to where an announced
+  // crossing (applyPendingRegion, then landSwap) has them.
   private landUnannouncedSwap(
     refresh: StateRefresh | undefined,
     previousBubble: number | undefined
@@ -688,12 +687,27 @@ export class ActivityHostProxySession implements HostSession, SessionContext {
       return;
     }
     event_message(
-      "activities:host:region: unannounced swap %s -> %d: current slice moves before the globals",
+      "activities:host:region: unannounced swap %s -> %d: current slice and PAH rows move before the membership and globals",
       this.crossing.currentSlice ?? "none",
       bubble
     );
+    const left = packBubbleStateHandle(
+      previousBubble,
+      this.crossing.currentBubbleState
+    );
     this.crossing.currentSlice = bubble;
     this.crossing.currentBubbleState = 0;
+    // The PAH rows as an announced crossing leaves them once it lands: the
+    // pending row is the region now entered (it merges into the current row,
+    // flag on) and the region left keeps its row, flag off. Without this the
+    // pending row still names the region just left, flag on.
+    const token = this.crossing.lastTransitionToken;
+    this.crossing.pendingRegion = {
+      regionId: packBubbleStateHandle(bubble, 0),
+      token,
+    };
+    this.crossing.regionBeforeCrossing = left;
+    this.crossing.leftBehindRegion = { regionId: left, token };
   }
 
   // Reads the refresh and moves the client's bubble to the one it names;
