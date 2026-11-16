@@ -18,12 +18,13 @@ export const DECRYPT_ACTION_HASH = 0xc4_b6_72_20;
 // Live build tiers (def tier): 1 basic, 2 common, 3 rare, 4 legendary,
 // 5 exotic. A decode item carries its engram's tier: Encoded 1, Encrypted 2,
 // Decoherent 3, Legendary 4, Exotic 5. Our stand-in for the resolver: the
-// tier the gear comes out at, and the chance it comes out a tier higher.
+// gear comes out at the engram's own rarity, with a small chance of one
+// higher. The loot pool has no basic gear, so an Encoded engram gives common.
 const DECODE_TIERS: ReadonlyMap<number, { tier: number; upgrade: number }> =
   new Map([
-    [1, { tier: 2, upgrade: 0.1 }],
-    [2, { tier: 3, upgrade: 0.1 }],
-    [3, { tier: 3, upgrade: 0.25 }],
+    [1, { tier: 2, upgrade: 0 }],
+    [2, { tier: 2, upgrade: 0.15 }],
+    [3, { tier: 3, upgrade: 0.1 }],
     [4, { tier: 4, upgrade: 0.05 }],
     [5, { tier: 5, upgrade: 0 }],
   ]);
