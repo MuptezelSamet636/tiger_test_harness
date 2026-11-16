@@ -94,51 +94,19 @@ export function itemTalentByte(item: {
   return mix32(low ^ mix32(high ^ 0x4e_4e_4e_4e)) % limit;
 }
 
-// A roll as the wire byte. The client reads the bytes as fractions (byte /
-// 255, d1preservation items-and-gear: "consumed as byte/255.0 interpolants")
-// and its exact rounding is not known, so a node row's value k of
-// 0..maximum goes out as a byte every candidate reading takes as step k:
-// floor(fraction x steps), floor(fraction x maximum), round(fraction x
-// maximum) and floor(byte x steps / 256). The middle such byte; the top
-// step is 255 (the only byte floor(fraction x maximum) reads as maximum).
-// Earlier bytes satisfied all but the second, and a locked rolled perk
-// showed one step low. A full-byte (stat) row goes out as is.
-const rollBytesByMaximum = new Map<number, number[]>();
-
-function rollByteReadings(byte: number, maximum: number): number[] {
-  const steps = maximum + 1;
-  const fraction = byte / 0xff;
-  return [
-    Math.min(maximum, Math.floor(fraction * steps)),
-    Math.floor(fraction * maximum + 1e-9),
-    Math.min(maximum, Math.round(fraction * maximum)),
-    Math.floor((byte * steps) / 0x1_00),
-  ];
-}
-
+// A roll as the wire byte: the value itself. The grid gives each node row's
+// maximum (0..3 on Her Eyes) and a new instance rolls 0..maximum for it
+// (s_talent_grid_random_roll); the client takes that as the exclusive node's
+// step index. Full-byte rows (maximum -1) are the stat lerps (byte / 255).
+// Sending node rolls as byte fractions put them out of range: a locked
+// rolled perk then showed something else than once bought (Merciless, Her
+// Eyes), and the earlier "same perks" readings were of bought nodes, which
+// all stored 1 at the time.
 export function talentRollByte(value: number, maximum: number): number {
   if (maximum < 0) {
     return value & 0xff;
   }
-  if (maximum === 0) {
-    return 0;
-  }
-  let bytes = rollBytesByMaximum.get(maximum);
-  if (!bytes) {
-    bytes = Array.from({ length: maximum + 1 }, (_, step) => {
-      const agreeing: number[] = [];
-      for (let byte = 0; byte <= 0xff; byte++) {
-        if (rollByteReadings(byte, maximum).every((read) => read === step)) {
-          agreeing.push(byte);
-        }
-      }
-      return agreeing.length > 0
-        ? agreeing[agreeing.length >> 1]!
-        : Math.round((0xff * step) / maximum);
-    });
-    rollBytesByMaximum.set(maximum, bytes);
-  }
-  return bytes[Math.min(Math.max(value, 0), maximum)]!;
+  return Math.min(Math.max(value, 0), maximum);
 }
 
 // The item's rolls as the 8 wire bytes (8080405E).
