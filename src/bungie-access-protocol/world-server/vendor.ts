@@ -36,27 +36,29 @@ export const vendorBuyItem: WorldServerHandler = async (ctx, message) => {
   if (plan.status === VENDOR_STATUS_OK && character) {
     newItemSoid = await applyPurchase(ctx.store, character, plan);
     spentSoid = plan.cost?.remove ? plan.cost.item.soid : null;
-    // A bounty turned in: its XP and reputation.
-    if (plan.action.kind === "consume") {
-      const { experience, reputation } = plan.action.rewards;
-      for (const [index, amount] of reputation) {
-        const xp = await ctx.store.addProgression?.(
-          character.soid,
-          index,
-          amount
-        );
-        if (xp !== undefined) {
-          character.reputation = { ...character.reputation, [index]: xp };
-        }
-        granted += ` +${amount} progression ${index}`;
+    // A bounty turned in (its XP and reputation) or an engram decoded (its
+    // Cryptarch reputation).
+    const consumed =
+      plan.action.kind === "consume" ? plan.action.rewards : undefined;
+    const reputation = consumed?.reputation ?? plan.reputation ?? new Map();
+    const experience = consumed?.experience ?? 0;
+    for (const [index, amount] of reputation) {
+      const xp = await ctx.store.addProgression?.(
+        character.soid,
+        index,
+        amount
+      );
+      if (xp !== undefined) {
+        character.reputation = { ...character.reputation, [index]: xp };
       }
-      if (experience > 0) {
-        selfFamilyPublisherFor(character.soid)?.grantXp(
-          experience,
-          BOUNTY_REWARD_REASON
-        );
-        granted += ` +${experience} XP`;
-      }
+      granted += ` +${amount} progression ${index}`;
+    }
+    if (experience > 0) {
+      selfFamilyPublisherFor(character.soid)?.grantXp(
+        experience,
+        BOUNTY_REWARD_REASON
+      );
+      granted += ` +${experience} XP`;
     }
   }
   ctx.reply(

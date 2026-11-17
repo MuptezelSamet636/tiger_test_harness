@@ -7,7 +7,7 @@ import { itemDef } from "../content/items";
 import { vendorDefs } from "../content/vendors";
 import type { CharacterRecord, CharacterStore } from "./character-store";
 import { type BountyRewards, bountyRewards } from "./bounties";
-import { isDecodeItem, pickDecodedDef } from "./engrams";
+import { decodeReputation, isDecodeItem, pickDecodedDef } from "./engrams";
 import {
   bagBucketFor,
   bucketSlotCounts,
@@ -42,6 +42,9 @@ type PurchaseAction =
 export interface PurchaseOk {
   action: PurchaseAction;
   cost: PurchaseCost | null;
+  // Reputation the purchase earns besides what it gives (a decode's
+  // Cryptarch reputation), progression index -> XP.
+  reputation?: Map<number, number>;
   status: typeof VENDOR_STATUS_OK;
 }
 
@@ -168,7 +171,17 @@ export function planPurchase(
   if (loadout.bucketCount(bucket) - freed >= slotCount) {
     return { status: VENDOR_STATUS_NO_ROOM };
   }
-  return { status: VENDOR_STATUS_OK, action: { kind: "insert", seed }, cost };
+  const decoded = isDecodeItem(offered)
+    ? decodeReputation(purchase.itemDef)
+    : undefined;
+  return {
+    status: VENDOR_STATUS_OK,
+    action: { kind: "insert", seed },
+    cost,
+    ...(decoded
+      ? { reputation: new Map([[decoded.progression, decoded.amount]]) }
+      : {}),
+  };
 }
 
 // Persists a PurchaseOk plan and mutates character.loadout to match.

@@ -31,6 +31,25 @@ const DECODE_TIERS: ReadonlyMap<number, { tier: number; upgrade: number }> =
 
 const HIGHEST_TIER = 5;
 
+// faction_cryptarch (fnv1), the live progression a decode raises. A decode
+// item's action rewards it (50 Encoded, 100 Encrypted, 350 Legendary, 500
+// Exotic) under a progression number that is not the table's row (106).
+const CRYPTARCH_PROGRESSION = 116;
+
+// The Cryptarch reputation a decode earns: its action's progression reward.
+export function decodeReputation(
+  decodeDefIndex: number
+): { amount: number; progression: number } | undefined {
+  const action = itemDef(decodeDefIndex)?.action;
+  const amount = (action?.progressionRewards ?? []).reduce(
+    (sum, reward) => sum + Math.max(0, reward.amount),
+    0
+  );
+  return amount > 0
+    ? { amount, progression: CRYPTARCH_PROGRESSION }
+    : undefined;
+}
+
 // A def decodes when acquired: its action is a consumed decrypt that runs on
 // acquire.
 export function isDecodeItem(def: ItemDef | undefined): boolean {
