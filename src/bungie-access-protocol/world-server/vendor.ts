@@ -12,6 +12,7 @@ import {
   parseVendorBuyItemRequest,
   parseVendorSellItemRequest,
 } from "../rsat";
+import { BOUNTY_REWARD_REASON } from "../../investment/bounty-rules";
 import { selfFamilyPublisherFor } from "../../players/registry";
 import type { WorldServerHandler } from "./context";
 
@@ -52,7 +53,7 @@ export const vendorBuyItem: WorldServerHandler = async (ctx, message) => {
       if (experience > 0) {
         selfFamilyPublisherFor(character.soid)?.grantXp(
           experience,
-          "bounty turned in"
+          BOUNTY_REWARD_REASON
         );
         granted += ` +${experience} XP`;
       }

@@ -30,18 +30,29 @@ export interface BountyAdvance {
   completed: { defIndex: number; removed: bigint }[];
 }
 
-// Add `amount` progress to each of `bounties` (active bounty items). One that
-// reaches its target is swapped for its completed bounty.
+// Add progress to active bounty items, each by its own amount. One that
+// reaches its target is swapped for its completed bounty; `reset` items go
+// back to 0 ("without dying").
 export async function advanceBounties(
   store: CharacterStore,
   character: CharacterRecord,
-  bounties: readonly LoadoutItem[],
-  amount: number
+  moves: readonly { amount: number | "reset"; item: LoadoutItem }[]
 ): Promise<BountyAdvance> {
   const result: BountyAdvance = { changed: [], completed: [] };
-  for (const item of bounties) {
+  for (const { amount, item } of moves) {
     const progression = bountyProgression(item.defIndex);
-    if (!progression || amount <= 0) {
+    if (!progression) {
+      continue;
+    }
+    if (amount === "reset") {
+      if (item.talentXp !== 0) {
+        item.talentXp = 0;
+        await store.setItemTalentXp?.(item.soid, 0);
+        result.changed.push(item.soid);
+      }
+      continue;
+    }
+    if (amount <= 0) {
       continue;
     }
     const progress = Math.min(progression.target, item.talentXp + amount);

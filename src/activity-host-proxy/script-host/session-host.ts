@@ -550,6 +550,18 @@ export class SessionScriptHost {
       // material, so it counts for every enabled Loot row (one objective's
       // at a time in practice); gather_material is matched.
       const pickup = incident.nameHash === INCIDENT_QUEST_ITEM_COLLECTED;
+      // A bounty counts each gathered material once, however many sockets
+      // the incident reaches (by its number, like a kill's reward).
+      const gatherer = this.context.joinIdentity()?.character;
+      const header = readIncidentHeader(payload, metadataBit);
+      if (
+        incident.nameHash === INCIDENT_GATHER_MATERIAL &&
+        gatherer !== undefined &&
+        header &&
+        firstRewardFor(gatherer, header.incidentNumber)
+      ) {
+        selfFamilyPublisherFor(gatherer)?.bountyEvent?.({ kind: "gather" });
+      }
       this.noteLootGathered(
         (material) =>
           pickup || incidentCarriesU32(payload, metadataBit, material)
@@ -591,6 +603,11 @@ export class SessionScriptHost {
       const identity = this.context.joinIdentity();
       if (this.host instanceof ScriptHost && identity) {
         this.host.notePlayerDied(identity.character.toString(16));
+      }
+      if (identity) {
+        selfFamilyPublisherFor(identity.character)?.bountyEvent?.({
+          kind: "death",
+        });
       }
       return;
     }
@@ -645,9 +662,7 @@ export class SessionScriptHost {
     );
     const publisher = selfFamilyPublisherFor(character);
     publisher?.grantXp(killXp(), `kill 0x${header.incidentNumber.toString(16)}`);
-    if (readDebugToggles().toggles.bountyKillProgress) {
-      publisher?.creditBounties?.(1, "kill (bountyKillProgress)");
-    }
+    publisher?.bountyEvent?.({ kind: "kill" });
     // The drop's nonce is the kill's own incident number and submitter, which
     // the client's pickup (601) sends back. No per-combatant reward value is
     // resolved, so the chance is TIGER_LOOT_DROP_CHANCE's (loot-policy.ts).

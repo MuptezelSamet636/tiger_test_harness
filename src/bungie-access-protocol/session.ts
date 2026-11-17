@@ -17,7 +17,13 @@ import {
 } from "../activity-host-proxy/notification";
 import { activeBuild, clientBuildMatches } from "../builds";
 import { progressionDef } from "../content/progressions";
+import { readDebugToggles } from "../dev-config/debug-toggles";
 import { activeBounties, advanceBounties } from "../investment/bounties";
+import {
+  BOUNTY_REWARD_REASON,
+  type BountyEvent,
+  bountyEffect,
+} from "../investment/bounty-rules";
 import { levelForXp } from "../investment/character-level";
 import { gearXpMultiplier } from "../investment/stubs/xp-policy";
 import { hasTalentGrid } from "../investment/talent-grid";
@@ -91,6 +97,8 @@ export class BungieAccessProtocolSession implements SelfFamilyPublisher {
   // An activity the host saw end, whose completion push waits for the
   // client to leave it (completeActivity).
   private pendingActivityComplete: number | undefined;
+  // The activity the character last died in, for "without dying" bounties.
+  private diedInActivity: number | undefined;
   private xetrovBuildChecked = false;
   // What the world-server handlers see of this session.
   private readonly world: WorldServerContext;
@@ -204,30 +212,38 @@ export class BungieAccessProtocolSession implements SelfFamilyPublisher {
     this.families.pushInventoryChange([], [], "loot drop");
   }
 
-  // Bounty progress (investment/bounties.ts): the active bounties `counts`
-  // accepts move, the delta carries their bars, and a completed one is
-  // swapped for its completed bounty.
-  creditBounties(
-    amount: number,
-    reason: string,
-    counts: (defIndex: number) => boolean = () => true
-  ): void {
+  // A bounty event (investment/bounty-rules.ts). Deaths are remembered for
+  // the activity the character is in, so a completion knows whether it was
+  // without dying. debug-toggles bountyKillProgress makes every kill count for
+  // every active bounty instead.
+  bountyEvent(event: BountyEvent): void {
     const character = this.character;
-    if (!character || amount <= 0) {
+    if (!character) {
       return;
     }
-    const bounties = activeBounties(character).filter((item) =>
-      counts(item.defIndex)
-    );
-    if (bounties.length === 0) {
+    const activityIndex = character.lastActivity?.index;
+    if (event.kind === "death" && activityIndex !== undefined) {
+      this.diedInActivity = activityIndex;
+    }
+    const everyKill =
+      event.kind === "kill" && readDebugToggles().toggles.bountyKillProgress;
+    const moves = activeBounties(character).flatMap((item) => {
+      const amount = everyKill
+        ? 1
+        : bountyEffect(item.defIndex, event, { activityIndex });
+      return amount === undefined ? [] : [{ amount, item }];
+    });
+    if (moves.length === 0) {
       return;
     }
-    advanceBounties(this.store, character, bounties, amount)
+    advanceBounties(this.store, character, moves)
       .then(({ changed, completed }) => {
+        if (changed.length === 0 && completed.length === 0) {
+          return;
+        }
         event_message(
-          "networking:bap: bounty progress +%d (%s) char=0x%I64x moved=%d completed=[%s]",
-          amount,
-          reason,
+          "networking:bap: bounty %s char=0x%I64x moved=%d completed=[%s]",
+          event.kind,
           character.soid,
           changed.length,
           completed.map((c) => c.defIndex).join(",")
@@ -235,7 +251,7 @@ export class BungieAccessProtocolSession implements SelfFamilyPublisher {
         this.families.pushInventoryChange(
           changed,
           completed.map((c) => c.removed),
-          `bounty progress (${reason})`
+          `bounty ${event.kind}`
         );
       })
       .catch((error: unknown) => {
@@ -249,6 +265,9 @@ export class BungieAccessProtocolSession implements SelfFamilyPublisher {
     const character = this.character;
     if (!character || amount <= 0) {
       return;
+    }
+    if (reason !== BOUNTY_REWARD_REASON) {
+      this.bountyEvent({ amount, kind: "xp" });
     }
     const before = levelForXp(character.progressionXp);
     const leveledItems = this.grantItemXp(character, amount);
@@ -378,6 +397,7 @@ export class BungieAccessProtocolSession implements SelfFamilyPublisher {
       return;
     }
     character.lastActivity = { completed: false, index: activityIndex };
+    this.diedInActivity = undefined;
     this.families.pushInventoryChange(
       [],
       [],
@@ -409,6 +429,12 @@ export class BungieAccessProtocolSession implements SelfFamilyPublisher {
       });
     }
     this.pendingActivityComplete = activityIndex;
+    this.bountyEvent({
+      activityIndex,
+      died: this.diedInActivity === activityIndex,
+      kind: "complete",
+    });
+    this.diedInActivity = undefined;
     event_message(
       "networking:bap: activity %d complete char=0x%I64x prologuePending=%s, push waits for the leave",
       activityIndex,
